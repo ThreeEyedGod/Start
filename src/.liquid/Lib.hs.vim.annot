@@ -1,0 +1,3 @@
+1:1-1:1::Lib.$trModule :: "GHC.Types.Module"
+7:1-7:9::Lib.someFunc :: "(GHC.Types.IO ())"
+7:21-7:31::lq_anf$##7205759403792796046 :: "[GHC.Types.Char]"

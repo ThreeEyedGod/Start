@@ -5,54 +5,47 @@
 
 packages:
 - completed:
-    hackage: liquidhaskell-0.8.10.2@sha256:fc79e92fc4de0aec47965e457915ef7a5be9fd1d3ec1d3a681a9909f5286bf8f,15777
+    hackage: number-length-0.2.1.0@sha256:cf2c851ab375e2b151973d1525833bb4318b959369301fc79764d3c7c755d3a6,5912
     pantry-tree:
-      size: 69560
-      sha256: c8bb733484e14ae2ca10a4cb726701f52258e170b246d5f378cbc642bc1d0082
+      size: 1256
+      sha256: b971d6cd6fa41c5136cb4c9e52d62ee2d27dcc97ff1dd660a6cdb9c23e93e7ba
   original:
-    hackage: liquidhaskell-0.8.10.2
+    hackage: number-length-0.2.1.0
 - completed:
-    hackage: liquid-base-4.14.1.0@sha256:5df5cf52b893238e243b48ee647389caa81fbb838c9de26691ded4a3f091c5a3,9066
+    hackage: integer-gmp-1.0.3.0@sha256:514e81647473ce380cf1814821664c0dcedc2801ad8dbf41b19a10f916e1cc75,2138
     pantry-tree:
-      size: 14924
-      sha256: f5d02ebd3d54536d8fe1074fc727bcd64de2b1666936a70e57c534576d9ff4f2
+      size: 1109
+      sha256: 5b3253cddae6067147ee898921258b5b3ffec16f280e86ffb872f129556f6f12
   original:
-    hackage: liquid-base-4.14.1.0
+    hackage: integer-gmp-1.0.3.0
 - completed:
-    hackage: liquid-containers-0.6.2.1@sha256:e04f83f398818b11bdabe7df3219bb6d300edb083bf3bf21f8ff8e220552a8c9,2293
+    hackage: integer-logarithms-1.0.3@sha256:63d42595ec92b71ac98a07b984b0a2eb3d4956f4ad2d856c3bf6fc3dc218d228,2820
     pantry-tree:
-      size: 2143
-      sha256: 94c0c12f8eb26f93359d97347dd71132cacd82b79052bb2cedf5282899128ede
+      size: 865
+      sha256: 7feb7c37d4117f398377c7e0ad480bfa7f63e378753fc6a163deec1f3e9fbc23
   original:
-    hackage: liquid-containers-0.6.2.1
+    hackage: integer-logarithms-1.0.3
 - completed:
-    hackage: liquid-ghc-prim-0.6.1@sha256:83ef2d8fb705f31f269ce2b3e05af4333fb77c7083d3a56c25032dffd6dfd7b7,1766
+    hackage: ghc-typelits-extra-0.3.3@sha256:cc0ca56e47d6ba997414a39a5be0fbce4c1cdd251f37c2575c5778194e213b8e,4815
     pantry-tree:
-      size: 858
-      sha256: b8b0bde3cc45e2e7f3517f24aa8a96e224bfb5cab08df4259cf2a597d9748104
+      size: 681
+      sha256: a40c43cbf4202cbce8d786b172f1cd40159a245bd4027d8e904d6fc26d9594dc
   original:
-    hackage: liquid-ghc-prim-0.6.1
+    hackage: ghc-typelits-extra-0.3.3
 - completed:
-    hackage: Diff-0.3.4@sha256:5ab20a407f9e65d13b642c3cd414906a40280343a31b388f6ed69b9228fe42c1,1127
+    hackage: parallel-3.2.2.0@sha256:c69372af9a39a06739e1d0eaa1f2d8be6b86493a53dbbc455e7b30479c491c6a,1763
     pantry-tree:
-      size: 416
-      sha256: 48d1b942ff99293d69a8ca4ea60f372093e5aeea73f63d11829ceca01d63c7fd
+      size: 392
+      sha256: 0b408143e18070406acc2acb528fc4b695f04161e0beb490351d50d92a841fe3
   original:
-    hackage: Diff-0.3.4
+    hackage: parallel-3.2.2.0
 - completed:
-    hackage: liquid-fixpoint-0.8.10.2@sha256:1646c4cc5f81349356a0d37bd3c8f4db74ced9e1707a2e19915c8d2fa6ae9e43,7306
+    hackage: hspec-core-2.7.4@sha256:d37eab1d356deef00063575796bcf6029207bfaa27ec984f13222ef0862d8f5b,4537
     pantry-tree:
-      size: 14011
-      sha256: 7efb1b4ca372a0bf356cdd01ad1c504e228194de7db5bbedfffe9d9e87917a1a
+      size: 3748
+      sha256: 4a8904e018794b1ff735ed54d413402225f0794f746b1b3aef368c63890feecc
   original:
-    hackage: liquid-fixpoint-0.8.10.2
-- completed:
-    hackage: text-format-0.3.2@sha256:2a3fc17cf87120fcfdbca62a0da59759755549285841cdc1483081c35fb3d115,1814
-    pantry-tree:
-      size: 1029
-      sha256: 2db26ddb77184186e0d5b2b020bdfbeb044c168024767b1fa3691682ca618896
-  original:
-    hackage: text-format-0.3.2
+    hackage: hspec-core-2.7.4
 snapshots:
 - completed:
     size: 521085

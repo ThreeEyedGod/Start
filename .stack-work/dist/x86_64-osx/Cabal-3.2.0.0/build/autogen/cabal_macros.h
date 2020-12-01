@@ -22,6 +22,61 @@
   (major1) == 4 && (major2) == 14 && (minor) <= 0)
 #endif /* MIN_VERSION_base */
 
+/* package ghc-typelits-extra-0.3.3 */
+#ifndef VERSION_ghc_typelits_extra
+#define VERSION_ghc_typelits_extra "0.3.3"
+#endif /* VERSION_ghc_typelits_extra */
+#ifndef MIN_VERSION_ghc_typelits_extra
+#define MIN_VERSION_ghc_typelits_extra(major1,major2,minor) (\
+  (major1) <  0 || \
+  (major1) == 0 && (major2) <  3 || \
+  (major1) == 0 && (major2) == 3 && (minor) <= 3)
+#endif /* MIN_VERSION_ghc_typelits_extra */
+
+/* package integer-gmp-1.0.3.0 */
+#ifndef VERSION_integer_gmp
+#define VERSION_integer_gmp "1.0.3.0"
+#endif /* VERSION_integer_gmp */
+#ifndef MIN_VERSION_integer_gmp
+#define MIN_VERSION_integer_gmp(major1,major2,minor) (\
+  (major1) <  1 || \
+  (major1) == 1 && (major2) <  0 || \
+  (major1) == 1 && (major2) == 0 && (minor) <= 3)
+#endif /* MIN_VERSION_integer_gmp */
+
+/* package integer-logarithms-1.0.3 */
+#ifndef VERSION_integer_logarithms
+#define VERSION_integer_logarithms "1.0.3"
+#endif /* VERSION_integer_logarithms */
+#ifndef MIN_VERSION_integer_logarithms
+#define MIN_VERSION_integer_logarithms(major1,major2,minor) (\
+  (major1) <  1 || \
+  (major1) == 1 && (major2) <  0 || \
+  (major1) == 1 && (major2) == 0 && (minor) <= 3)
+#endif /* MIN_VERSION_integer_logarithms */
+
+/* package number-length-0.2.1.0 */
+#ifndef VERSION_number_length
+#define VERSION_number_length "0.2.1.0"
+#endif /* VERSION_number_length */
+#ifndef MIN_VERSION_number_length
+#define MIN_VERSION_number_length(major1,major2,minor) (\
+  (major1) <  0 || \
+  (major1) == 0 && (major2) <  2 || \
+  (major1) == 0 && (major2) == 2 && (minor) <= 1)
+#endif /* MIN_VERSION_number_length */
+
+/* package parallel-3.2.2.0 */
+#ifndef VERSION_parallel
+#define VERSION_parallel "3.2.2.0"
+#endif /* VERSION_parallel */
+#ifndef MIN_VERSION_parallel
+#define MIN_VERSION_parallel(major1,major2,minor) (\
+  (major1) <  3 || \
+  (major1) == 3 && (major2) <  2 || \
+  (major1) == 3 && (major2) == 2 && (minor) <= 2)
+#endif /* MIN_VERSION_parallel */
+
 /* tool doctest-0.17 */
 #ifndef TOOL_VERSION_doctest
 #define TOOL_VERSION_doctest "0.17"
@@ -110,17 +165,6 @@
   (major1) == 0 && (major2) == 68 && (minor) <= 7)
 #endif /* MIN_TOOL_VERSION_hsc2hs */
 
-/* tool hscolour-1.24 */
-#ifndef TOOL_VERSION_hscolour
-#define TOOL_VERSION_hscolour "1.24"
-#endif /* TOOL_VERSION_hscolour */
-#ifndef MIN_TOOL_VERSION_hscolour
-#define MIN_TOOL_VERSION_hscolour(major1,major2,minor) (\
-  (major1) <  1 || \
-  (major1) == 1 && (major2) <  24 || \
-  (major1) == 1 && (major2) == 24 && (minor) <= 0)
-#endif /* MIN_TOOL_VERSION_hscolour */
-
 /* tool runghc-8.10.1 */
 #ifndef TOOL_VERSION_runghc
 #define TOOL_VERSION_runghc "8.10.1"
@@ -133,10 +177,10 @@
 #endif /* MIN_TOOL_VERSION_runghc */
 
 #ifndef CURRENT_PACKAGE_KEY
-#define CURRENT_PACKAGE_KEY "start-0.1.0.0-LcwVJlklMK9w2eNe0WOg"
+#define CURRENT_PACKAGE_KEY "start-0.1.0.0-AMOuWXxhwUMIHDA3usiVc6"
 #endif /* CURRENT_PACKAGE_KEY */
 #ifndef CURRENT_COMPONENT_ID
-#define CURRENT_COMPONENT_ID "start-0.1.0.0-LcwVJlklMK9w2eNe0WOg"
+#define CURRENT_COMPONENT_ID "start-0.1.0.0-AMOuWXxhwUMIHDA3usiVc6"
 #endif /* CURRENT_COMPONENT_ID */
 #ifndef CURRENT_PACKAGE_VERSION
 #define CURRENT_PACKAGE_VERSION "0.1.0.0"

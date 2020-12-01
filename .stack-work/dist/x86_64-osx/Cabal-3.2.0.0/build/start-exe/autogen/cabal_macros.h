@@ -22,39 +22,6 @@
   (major1) == 4 && (major2) == 14 && (minor) <= 0)
 #endif /* MIN_VERSION_base */
 
-/* package liquid-base-4.14.1.0 */
-#ifndef VERSION_liquid_base
-#define VERSION_liquid_base "4.14.1.0"
-#endif /* VERSION_liquid_base */
-#ifndef MIN_VERSION_liquid_base
-#define MIN_VERSION_liquid_base(major1,major2,minor) (\
-  (major1) <  4 || \
-  (major1) == 4 && (major2) <  14 || \
-  (major1) == 4 && (major2) == 14 && (minor) <= 1)
-#endif /* MIN_VERSION_liquid_base */
-
-/* package liquid-containers-0.6.2.1 */
-#ifndef VERSION_liquid_containers
-#define VERSION_liquid_containers "0.6.2.1"
-#endif /* VERSION_liquid_containers */
-#ifndef MIN_VERSION_liquid_containers
-#define MIN_VERSION_liquid_containers(major1,major2,minor) (\
-  (major1) <  0 || \
-  (major1) == 0 && (major2) <  6 || \
-  (major1) == 0 && (major2) == 6 && (minor) <= 2)
-#endif /* MIN_VERSION_liquid_containers */
-
-/* package liquidhaskell-0.8.10.2 */
-#ifndef VERSION_liquidhaskell
-#define VERSION_liquidhaskell "0.8.10.2"
-#endif /* VERSION_liquidhaskell */
-#ifndef MIN_VERSION_liquidhaskell
-#define MIN_VERSION_liquidhaskell(major1,major2,minor) (\
-  (major1) <  0 || \
-  (major1) == 0 && (major2) <  8 || \
-  (major1) == 0 && (major2) == 8 && (minor) <= 10)
-#endif /* MIN_VERSION_liquidhaskell */
-
 /* package parallel-3.2.2.0 */
 #ifndef VERSION_parallel
 #define VERSION_parallel "3.2.2.0"
@@ -165,17 +132,6 @@
   (major1) == 0 && (major2) == 68 && (minor) <= 7)
 #endif /* MIN_TOOL_VERSION_hsc2hs */
 
-/* tool hscolour-1.24 */
-#ifndef TOOL_VERSION_hscolour
-#define TOOL_VERSION_hscolour "1.24"
-#endif /* TOOL_VERSION_hscolour */
-#ifndef MIN_TOOL_VERSION_hscolour
-#define MIN_TOOL_VERSION_hscolour(major1,major2,minor) (\
-  (major1) <  1 || \
-  (major1) == 1 && (major2) <  24 || \
-  (major1) == 1 && (major2) == 24 && (minor) <= 0)
-#endif /* MIN_TOOL_VERSION_hscolour */
-
 /* tool runghc-8.10.1 */
 #ifndef TOOL_VERSION_runghc
 #define TOOL_VERSION_runghc "8.10.1"
@@ -188,7 +144,7 @@
 #endif /* MIN_TOOL_VERSION_runghc */
 
 #ifndef CURRENT_COMPONENT_ID
-#define CURRENT_COMPONENT_ID "start-0.1.0.0-73t3rzeufyE8vue1ySqtAC-start-exe"
+#define CURRENT_COMPONENT_ID "start-0.1.0.0-KrTTsnEtIPCH5D1GjKwRaf-start-exe"
 #endif /* CURRENT_COMPONENT_ID */
 #ifndef CURRENT_PACKAGE_VERSION
 #define CURRENT_PACKAGE_VERSION "0.1.0.0"

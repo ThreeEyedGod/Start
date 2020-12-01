@@ -1,0 +1,59 @@
+module Lib where
+-- in liquidHaskell extension --no-ghc-package-path
+import Data.NumberLength
+import GHC.Integer.Logarithms ()
+import Math.NumberTheory.Logarithms
+import GHC.TypeLits.Extra
+import Debug.Trace
+
+getLargerTwoNumbers :: Integer -> Integer -> Integer
+getLargerTwoNumbers x y = if (abs x >= abs y) then x else y
+
+higherPower :: Integer -> Integer
+higherPower x  = ceiling (logBase basetwo numberInterest)
+                    where basetwo = 2 :: Float 
+                          numberInterest = fromInteger (toInteger (numberLength x))
+
+getNextPowerOf2 :: Integer -> Integer
+getNextPowerOf2 x = 2 ^ higherPower (abs x)
+
+padNumberBeforeWithZeroes :: Integer -> Integer
+padNumberBeforeWithZeroes x = getNextPowerOf2 x  - toInteger (numberLength x)
+
+-- 2nd half  = right side half
+get2ndHalf :: Integer -> Integer -> Integer
+get2ndHalf x halfLength
+    | x == 0 = 0 
+    | toInteger (numberLength x) <= halfLength = x
+    | otherwise = get2ndHalf (x `mod` 10 ^ (numberLength x - 1)) halfLength
+
+-- 1st half = left side half    
+get1stHalf :: Integer -> Integer -> Integer
+get1stHalf x secondHalf = 
+ --  (signum x) * ((abs x) - (abs secondHalf)) `div` 10 ^ numberLength secondHalf
+ --   ((abs x) - (abs secondHalf)) `div` 10 ^ numberLength secondHalf
+   (x - secondHalf) `div` 10 ^ numberLength secondHalf
+
+karatsuba :: Integer -> Integer -> Integer
+karatsuba x y = trace ("Entering k = " ++ show x ++ "  " ++ show y) $  ksba (getNextPowerOf2 (getLargerTwoNumbers x y))
+--karatsuba x y = ksba (getNextPowerOf2 (getLargerTwoNumbers x y))
+    where ksba n
+            | n <= 1 = trace ("n <= 1 n x y " ++ show n ++ show " " ++ show x ++ " " ++ show y) $ x * y 
+            | otherwise = trace ( "n = " ++ show n ) $ 10 ^ n * u + 10 ^ (n `div` 2) * z + v
+--            | n <= 1 = x * y 
+--            | otherwise = 10 ^ n * u + 10 ^ (n `div` 2) * z + v
+            where
+                halfLength  = n `div` 2
+                x2 = (signum x) * get2ndHalf (abs x) halfLength
+                x1 = trace (" x2 = " ++ show x2) $ (signum x) * get1stHalf (abs x) x2
+                y2 = (signum y) * get2ndHalf (abs y) halfLength
+                y1 = trace (" y2 = " ++ show y2) $ (signum y) * get1stHalf (abs y) y2
+                u = trace (" x1 y1 = " ++ show x1 ++ show y1) $ karatsuba x1 y1
+                v = trace (" x2 y2 = " ++ show x2 ++ show y2) $ karatsuba x2 y2
+                diff1 = x1 - x2
+                diff2 = y1 - y2
+                w = karatsuba diff1 diff2
+                z = u + v - w
+
+someFunc :: IO ()
+someFunc = putStrLn "someFunc"

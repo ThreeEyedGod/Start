@@ -55,6 +55,17 @@
   (major1) == 2 && (major2) == 7 && (minor) <= 2)
 #endif /* MIN_VERSION_hspec */
 
+/* package hspec-core-2.7.4 */
+#ifndef VERSION_hspec_core
+#define VERSION_hspec_core "2.7.4"
+#endif /* VERSION_hspec_core */
+#ifndef MIN_VERSION_hspec_core
+#define MIN_VERSION_hspec_core(major1,major2,minor) (\
+  (major1) <  2 || \
+  (major1) == 2 && (major2) <  7 || \
+  (major1) == 2 && (major2) == 7 && (minor) <= 4)
+#endif /* MIN_VERSION_hspec_core */
+
 /* package hspec-hedgehog-0.0.1.2 */
 #ifndef VERSION_hspec_hedgehog
 #define VERSION_hspec_hedgehog "0.0.1.2"
@@ -187,17 +198,6 @@
   (major1) == 0 && (major2) == 68 && (minor) <= 7)
 #endif /* MIN_TOOL_VERSION_hsc2hs */
 
-/* tool hscolour-1.24 */
-#ifndef TOOL_VERSION_hscolour
-#define TOOL_VERSION_hscolour "1.24"
-#endif /* TOOL_VERSION_hscolour */
-#ifndef MIN_TOOL_VERSION_hscolour
-#define MIN_TOOL_VERSION_hscolour(major1,major2,minor) (\
-  (major1) <  1 || \
-  (major1) == 1 && (major2) <  24 || \
-  (major1) == 1 && (major2) == 24 && (minor) <= 0)
-#endif /* MIN_TOOL_VERSION_hscolour */
-
 /* tool runghc-8.10.1 */
 #ifndef TOOL_VERSION_runghc
 #define TOOL_VERSION_runghc "8.10.1"
@@ -210,7 +210,7 @@
 #endif /* MIN_TOOL_VERSION_runghc */
 
 #ifndef CURRENT_COMPONENT_ID
-#define CURRENT_COMPONENT_ID "start-0.1.0.0-10HzdzFObIL2tTWa7BBvpp-start-test"
+#define CURRENT_COMPONENT_ID "start-0.1.0.0-6zeiVOMq6rE8HWwFMkRPqd-start-test"
 #endif /* CURRENT_COMPONENT_ID */
 #ifndef CURRENT_PACKAGE_VERSION
 #define CURRENT_PACKAGE_VERSION "0.1.0.0"

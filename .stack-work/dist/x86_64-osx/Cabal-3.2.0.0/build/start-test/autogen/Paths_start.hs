@@ -29,12 +29,12 @@ version :: Version
 version = Version [0,1,0,0] []
 bindir, libdir, dynlibdir, datadir, libexecdir, sysconfdir :: FilePath
 
-bindir     = "/Users/bumrap/Documents/code/start/.stack-work/install/x86_64-osx/95a56931a19a5325dfd98916dc1b6a88b7e88068d137bd599009901ae57cb716/8.10.1/bin"
-libdir     = "/Users/bumrap/Documents/code/start/.stack-work/install/x86_64-osx/95a56931a19a5325dfd98916dc1b6a88b7e88068d137bd599009901ae57cb716/8.10.1/lib/x86_64-osx-ghc-8.10.1/start-0.1.0.0-6zeiVOMq6rE8HWwFMkRPqd-start-test"
-dynlibdir  = "/Users/bumrap/Documents/code/start/.stack-work/install/x86_64-osx/95a56931a19a5325dfd98916dc1b6a88b7e88068d137bd599009901ae57cb716/8.10.1/lib/x86_64-osx-ghc-8.10.1"
-datadir    = "/Users/bumrap/Documents/code/start/.stack-work/install/x86_64-osx/95a56931a19a5325dfd98916dc1b6a88b7e88068d137bd599009901ae57cb716/8.10.1/share/x86_64-osx-ghc-8.10.1/start-0.1.0.0"
-libexecdir = "/Users/bumrap/Documents/code/start/.stack-work/install/x86_64-osx/95a56931a19a5325dfd98916dc1b6a88b7e88068d137bd599009901ae57cb716/8.10.1/libexec/x86_64-osx-ghc-8.10.1/start-0.1.0.0"
-sysconfdir = "/Users/bumrap/Documents/code/start/.stack-work/install/x86_64-osx/95a56931a19a5325dfd98916dc1b6a88b7e88068d137bd599009901ae57cb716/8.10.1/etc"
+bindir     = "/Users/bumrap/Documents/code/start/.stack-work/install/x86_64-osx/724de046669977bd9317fabfc46d479788794f479bb15d1078ce62341b6c244c/8.10.1/bin"
+libdir     = "/Users/bumrap/Documents/code/start/.stack-work/install/x86_64-osx/724de046669977bd9317fabfc46d479788794f479bb15d1078ce62341b6c244c/8.10.1/lib/x86_64-osx-ghc-8.10.1/start-0.1.0.0-jYynTPpo5vD06sB97zulW-start-test"
+dynlibdir  = "/Users/bumrap/Documents/code/start/.stack-work/install/x86_64-osx/724de046669977bd9317fabfc46d479788794f479bb15d1078ce62341b6c244c/8.10.1/lib/x86_64-osx-ghc-8.10.1"
+datadir    = "/Users/bumrap/Documents/code/start/.stack-work/install/x86_64-osx/724de046669977bd9317fabfc46d479788794f479bb15d1078ce62341b6c244c/8.10.1/share/x86_64-osx-ghc-8.10.1/start-0.1.0.0"
+libexecdir = "/Users/bumrap/Documents/code/start/.stack-work/install/x86_64-osx/724de046669977bd9317fabfc46d479788794f479bb15d1078ce62341b6c244c/8.10.1/libexec/x86_64-osx-ghc-8.10.1/start-0.1.0.0"
+sysconfdir = "/Users/bumrap/Documents/code/start/.stack-work/install/x86_64-osx/724de046669977bd9317fabfc46d479788794f479bb15d1078ce62341b6c244c/8.10.1/etc"
 
 getBinDir, getLibDir, getDynLibDir, getDataDir, getLibexecDir, getSysconfDir :: IO FilePath
 getBinDir = catchIO (getEnv "start_bindir") (\_ -> return bindir)

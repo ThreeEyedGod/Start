@@ -210,7 +210,7 @@
 #endif /* MIN_TOOL_VERSION_runghc */
 
 #ifndef CURRENT_COMPONENT_ID
-#define CURRENT_COMPONENT_ID "start-0.1.0.0-6zeiVOMq6rE8HWwFMkRPqd-start-test"
+#define CURRENT_COMPONENT_ID "start-0.1.0.0-jYynTPpo5vD06sB97zulW-start-test"
 #endif /* CURRENT_COMPONENT_ID */
 #ifndef CURRENT_PACKAGE_VERSION
 #define CURRENT_PACKAGE_VERSION "0.1.0.0"

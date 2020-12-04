@@ -22,6 +22,17 @@
   (major1) == 4 && (major2) == 14 && (minor) <= 0)
 #endif /* MIN_VERSION_base */
 
+/* package lens-datetime-0.3 */
+#ifndef VERSION_lens_datetime
+#define VERSION_lens_datetime "0.3"
+#endif /* VERSION_lens_datetime */
+#ifndef MIN_VERSION_lens_datetime
+#define MIN_VERSION_lens_datetime(major1,major2,minor) (\
+  (major1) <  0 || \
+  (major1) == 0 && (major2) <  3 || \
+  (major1) == 0 && (major2) == 3 && (minor) <= 0)
+#endif /* MIN_VERSION_lens_datetime */
+
 /* package parallel-3.2.2.0 */
 #ifndef VERSION_parallel
 #define VERSION_parallel "3.2.2.0"
@@ -43,6 +54,17 @@
   (major1) == 0 && (major2) <  1 || \
   (major1) == 0 && (major2) == 1 && (minor) <= 0)
 #endif /* MIN_VERSION_start */
+
+/* package time-1.9.3 */
+#ifndef VERSION_time
+#define VERSION_time "1.9.3"
+#endif /* VERSION_time */
+#ifndef MIN_VERSION_time
+#define MIN_VERSION_time(major1,major2,minor) (\
+  (major1) <  1 || \
+  (major1) == 1 && (major2) <  9 || \
+  (major1) == 1 && (major2) == 9 && (minor) <= 3)
+#endif /* MIN_VERSION_time */
 
 /* tool doctest-0.17 */
 #ifndef TOOL_VERSION_doctest
@@ -144,7 +166,7 @@
 #endif /* MIN_TOOL_VERSION_runghc */
 
 #ifndef CURRENT_COMPONENT_ID
-#define CURRENT_COMPONENT_ID "start-0.1.0.0-KrTTsnEtIPCH5D1GjKwRaf-start-exe"
+#define CURRENT_COMPONENT_ID "start-0.1.0.0-K3NVEB3hTmImtylOA44it-start-exe"
 #endif /* CURRENT_COMPONENT_ID */
 #ifndef CURRENT_PACKAGE_VERSION
 #define CURRENT_PACKAGE_VERSION "0.1.0.0"

@@ -77,6 +77,17 @@
   (major1) == 3 && (major2) == 2 && (minor) <= 2)
 #endif /* MIN_VERSION_parallel */
 
+/* package time-1.9.3 */
+#ifndef VERSION_time
+#define VERSION_time "1.9.3"
+#endif /* VERSION_time */
+#ifndef MIN_VERSION_time
+#define MIN_VERSION_time(major1,major2,minor) (\
+  (major1) <  1 || \
+  (major1) == 1 && (major2) <  9 || \
+  (major1) == 1 && (major2) == 9 && (minor) <= 3)
+#endif /* MIN_VERSION_time */
+
 /* tool doctest-0.17 */
 #ifndef TOOL_VERSION_doctest
 #define TOOL_VERSION_doctest "0.17"
@@ -177,10 +188,10 @@
 #endif /* MIN_TOOL_VERSION_runghc */
 
 #ifndef CURRENT_PACKAGE_KEY
-#define CURRENT_PACKAGE_KEY "start-0.1.0.0-AMOuWXxhwUMIHDA3usiVc6"
+#define CURRENT_PACKAGE_KEY "start-0.1.0.0-330SbKyIzO32DsqYBeLBL7"
 #endif /* CURRENT_PACKAGE_KEY */
 #ifndef CURRENT_COMPONENT_ID
-#define CURRENT_COMPONENT_ID "start-0.1.0.0-AMOuWXxhwUMIHDA3usiVc6"
+#define CURRENT_COMPONENT_ID "start-0.1.0.0-330SbKyIzO32DsqYBeLBL7"
 #endif /* CURRENT_COMPONENT_ID */
 #ifndef CURRENT_PACKAGE_VERSION
 #define CURRENT_PACKAGE_VERSION "0.1.0.0"

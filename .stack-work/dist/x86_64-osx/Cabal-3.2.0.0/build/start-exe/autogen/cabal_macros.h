@@ -166,7 +166,7 @@
 #endif /* MIN_TOOL_VERSION_runghc */
 
 #ifndef CURRENT_COMPONENT_ID
-#define CURRENT_COMPONENT_ID "start-0.1.0.0-LXtfoSbC6AZ2OZKUN7tAQm-start-exe"
+#define CURRENT_COMPONENT_ID "start-0.1.0.0-2loXNs1j8jODrAu8TNyU0i-start-exe"
 #endif /* CURRENT_COMPONENT_ID */
 #ifndef CURRENT_PACKAGE_VERSION
 #define CURRENT_PACKAGE_VERSION "0.1.0.0"

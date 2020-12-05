@@ -19,20 +19,6 @@ packages:
   original:
     hackage: integer-gmp-1.0.3.0
 - completed:
-    hackage: integer-logarithms-1.0.3@sha256:63d42595ec92b71ac98a07b984b0a2eb3d4956f4ad2d856c3bf6fc3dc218d228,2820
-    pantry-tree:
-      size: 865
-      sha256: 7feb7c37d4117f398377c7e0ad480bfa7f63e378753fc6a163deec1f3e9fbc23
-  original:
-    hackage: integer-logarithms-1.0.3
-- completed:
-    hackage: ghc-typelits-extra-0.3.3@sha256:cc0ca56e47d6ba997414a39a5be0fbce4c1cdd251f37c2575c5778194e213b8e,4815
-    pantry-tree:
-      size: 681
-      sha256: a40c43cbf4202cbce8d786b172f1cd40159a245bd4027d8e904d6fc26d9594dc
-  original:
-    hackage: ghc-typelits-extra-0.3.3
-- completed:
     hackage: parallel-3.2.2.0@sha256:c69372af9a39a06739e1d0eaa1f2d8be6b86493a53dbbc455e7b30479c491c6a,1763
     pantry-tree:
       size: 392
@@ -60,6 +46,20 @@ packages:
       sha256: a1043c1719491764f0fa37a1fd70d9451080548a41632fee88d8e1b8db4942d6
   original:
     hackage: time-1.9.3
+- completed:
+    hackage: ghc-typelits-extra-0.4.1@sha256:ea3f504e032b8e4fa4d5ae1099fce7eeedb49315b20bf2ccd01f6f2ee668cf4d,4815
+    pantry-tree:
+      size: 682
+      sha256: 8e5d285c572712051eb080b4e067af9a8300be1b0c988404e9fa341c2fa68c84
+  original:
+    hackage: ghc-typelits-extra-0.4.1@sha256:ea3f504e032b8e4fa4d5ae1099fce7eeedb49315b20bf2ccd01f6f2ee668cf4d,4815
+- completed:
+    hackage: integer-logarithms-1.0.3.1@sha256:888fb6c4fbd79ed2e8f8b94b61bccac25f7fab2b13b32b496e86828bc60b17cf,3184
+    pantry-tree:
+      size: 865
+      sha256: 2acf4af718486ea69edd023edd333f836fdd52a07e2211677b5bf22d78da41db
+  original:
+    hackage: integer-logarithms-1.0.3.1@sha256:888fb6c4fbd79ed2e8f8b94b61bccac25f7fab2b13b32b496e86828bc60b17cf,3184
 snapshots:
 - completed:
     size: 521085

@@ -1,10 +1,10 @@
+-- cabal version 3.2 does not play well with stack 2.5.1 even though 
+-- https://hackage.haskell.org/package/stack seems to suggest >= 3.0.0.0
 cabal-version:       3.0
 name:                start
 version:             0.1.0.0
 -- synopsis:
 -- description:
--- cabal version 3.2 does not play well with stack 2.5.1 even though 
--- https://hackage.haskell.org/package/stack seems to suggest >= 3.0.0.0
 homepage:            https://github.com/githubuser/start#readme
 license:             BSD-3-Clause
 license-file:        LICENSE

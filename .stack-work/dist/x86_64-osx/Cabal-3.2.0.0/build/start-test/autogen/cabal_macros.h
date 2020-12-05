@@ -22,15 +22,15 @@
   (major1) == 2 && (major2) == 13 && (minor) <= 2)
 #endif /* MIN_VERSION_QuickCheck */
 
-/* package base-4.14.0.0 */
+/* package base-4.14.1.0 */
 #ifndef VERSION_base
-#define VERSION_base "4.14.0.0"
+#define VERSION_base "4.14.1.0"
 #endif /* VERSION_base */
 #ifndef MIN_VERSION_base
 #define MIN_VERSION_base(major1,major2,minor) (\
   (major1) <  4 || \
   (major1) == 4 && (major2) <  14 || \
-  (major1) == 4 && (major2) == 14 && (minor) <= 0)
+  (major1) == 4 && (major2) == 14 && (minor) <= 1)
 #endif /* MIN_VERSION_base */
 
 /* package hedgehog-1.0.3 */
@@ -132,26 +132,26 @@
   (major1) == 11 && (major2) == 0 && (minor) <= 3)
 #endif /* MIN_TOOL_VERSION_gcc */
 
-/* tool ghc-8.10.1 */
+/* tool ghc-8.10.2 */
 #ifndef TOOL_VERSION_ghc
-#define TOOL_VERSION_ghc "8.10.1"
+#define TOOL_VERSION_ghc "8.10.2"
 #endif /* TOOL_VERSION_ghc */
 #ifndef MIN_TOOL_VERSION_ghc
 #define MIN_TOOL_VERSION_ghc(major1,major2,minor) (\
   (major1) <  8 || \
   (major1) == 8 && (major2) <  10 || \
-  (major1) == 8 && (major2) == 10 && (minor) <= 1)
+  (major1) == 8 && (major2) == 10 && (minor) <= 2)
 #endif /* MIN_TOOL_VERSION_ghc */
 
-/* tool ghc-pkg-8.10.1 */
+/* tool ghc-pkg-8.10.2 */
 #ifndef TOOL_VERSION_ghc_pkg
-#define TOOL_VERSION_ghc_pkg "8.10.1"
+#define TOOL_VERSION_ghc_pkg "8.10.2"
 #endif /* TOOL_VERSION_ghc_pkg */
 #ifndef MIN_TOOL_VERSION_ghc_pkg
 #define MIN_TOOL_VERSION_ghc_pkg(major1,major2,minor) (\
   (major1) <  8 || \
   (major1) == 8 && (major2) <  10 || \
-  (major1) == 8 && (major2) == 10 && (minor) <= 1)
+  (major1) == 8 && (major2) == 10 && (minor) <= 2)
 #endif /* MIN_TOOL_VERSION_ghc_pkg */
 
 /* tool haddock-2.24.0 */
@@ -198,19 +198,19 @@
   (major1) == 0 && (major2) == 68 && (minor) <= 7)
 #endif /* MIN_TOOL_VERSION_hsc2hs */
 
-/* tool runghc-8.10.1 */
+/* tool runghc-8.10.2 */
 #ifndef TOOL_VERSION_runghc
-#define TOOL_VERSION_runghc "8.10.1"
+#define TOOL_VERSION_runghc "8.10.2"
 #endif /* TOOL_VERSION_runghc */
 #ifndef MIN_TOOL_VERSION_runghc
 #define MIN_TOOL_VERSION_runghc(major1,major2,minor) (\
   (major1) <  8 || \
   (major1) == 8 && (major2) <  10 || \
-  (major1) == 8 && (major2) == 10 && (minor) <= 1)
+  (major1) == 8 && (major2) == 10 && (minor) <= 2)
 #endif /* MIN_TOOL_VERSION_runghc */
 
 #ifndef CURRENT_COMPONENT_ID
-#define CURRENT_COMPONENT_ID "start-0.1.0.0-jYynTPpo5vD06sB97zulW-start-test"
+#define CURRENT_COMPONENT_ID "start-0.1.0.0-j8JV1aGtUCAeneoMyGLAQ-start-test"
 #endif /* CURRENT_COMPONENT_ID */
 #ifndef CURRENT_PACKAGE_VERSION
 #define CURRENT_PACKAGE_VERSION "0.1.0.0"

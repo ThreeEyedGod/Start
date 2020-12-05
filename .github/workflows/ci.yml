@@ -89,4 +89,3 @@ jobs:
     - name: Test
       run: |
         stack test --system-ghc
-Enabling such CI for your projects is completely effortless. All you need to do is create a file named .

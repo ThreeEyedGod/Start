@@ -46,14 +46,14 @@ get1stHalf x secondHalf =
  --   ((abs x) - (abs secondHalf)) `div` 10 ^ numberLength secondHalf
    (x - secondHalf) `div` 10 ^ numberLength secondHalf
 
-numDigits :: Integer -> Integer
-numDigits 1000 = 4
-numDigits x = floor $ logBase 10 (fromInteger x) + 1
+num_digits :: Integer -> Integer
+num_digits 1000 = 4
+num_digits x = floor $ logBase 10 (fromInteger x) + 1
 
 split_digits :: Integer -> Integer -> (Integer, Integer)
 split_digits ab n = (a, b)
   where
-    a = floor $ fromInteger ab / 10 ^ n
+    a = floor $ (fromInteger ab) / 10 ^ n
     b = ab - a * 10 ^ n
 
 myReverse :: Ord a => [a] -> [a]
@@ -75,7 +75,7 @@ karatsuba ab cd
         z2 = karatsuba a c
      in z2 * 10 ^ (digits `div` 2 * 2) + (z1 - z2 - z0) * 10 ^ (digits `div` 2) + z0
   where
-    digits = max (numDigits ab) (numDigits cd)
+    digits = max (num_digits ab) (num_digits cd)
     (a, b) = split_digits ab (digits `div` 2)
     (c, d) = split_digits cd (digits `div` 2)
 
@@ -87,7 +87,7 @@ karatsubaPar ab cd cutoff
   | (cutoff >= ab) || (cutoff >= cd) = z0 `CP.pseq` z2 `CP.pseq` z1 `CP.pseq` put_together
   | otherwise = (z0 `CP.par` z2) `CP.par` z1 `CP.pseq` put_together
   where
-    digits = max (numDigits ab) (numDigits cd)
+    digits = max (num_digits ab) (num_digits cd)
     (a, b) = split_digits ab (digits `div` 2)
     (c, d) = split_digits cd (digits `div` 2)
     z0 = karatsubaPar b d cutoff
@@ -97,7 +97,7 @@ karatsubaPar ab cd cutoff
     
 karatsubamine :: Integer -> Integer -> Integer
 --karatsuba x y = trace ("Entering ktsba with x y " ++ show x ++ "  " ++ show y) $  ksba (getNextPowerOf2 (getLargerTwoNumbers x y))
-karatsubamine x y = ksba (max (numDigits x) (numDigits y))
+karatsubamine x y = ksba (max (num_digits x) (num_digits y))
     where ksba n
  --           | n <= 1 = trace ("n <= 1 n x y " ++ show n ++ show " " ++ show x ++ " " ++ show y) $ x * y 
  --           | otherwise = trace ( "n = " ++ show n ) $ 10 ^ n * u + 10 ^ (n `div` 2) * z + v

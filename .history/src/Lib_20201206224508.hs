@@ -53,7 +53,7 @@ numDigits x = floor $ logBase 10 (fromInteger x) + 1
 split_digits :: Integer -> Integer -> (Integer, Integer)
 split_digits ab n = (a, b)
   where
-    a = floor $ fromInteger ab / 10 ^ n
+    a = floor $ (fromInteger ab) / 10 ^ n
     b = ab - a * 10 ^ n
 
 myReverse :: Ord a => [a] -> [a]

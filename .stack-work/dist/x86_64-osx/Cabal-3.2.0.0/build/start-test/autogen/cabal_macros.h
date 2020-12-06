@@ -11,6 +11,17 @@
   (major1) == 0 && (major2) == 1 && (minor) <= 0)
 #endif /* MIN_VERSION_start */
 
+/* package QuickCheck-2.13.2 */
+#ifndef VERSION_QuickCheck
+#define VERSION_QuickCheck "2.13.2"
+#endif /* VERSION_QuickCheck */
+#ifndef MIN_VERSION_QuickCheck
+#define MIN_VERSION_QuickCheck(major1,major2,minor) (\
+  (major1) <  2 || \
+  (major1) == 2 && (major2) <  13 || \
+  (major1) == 2 && (major2) == 13 && (minor) <= 2)
+#endif /* MIN_VERSION_QuickCheck */
+
 /* package base-4.14.1.0 */
 #ifndef VERSION_base
 #define VERSION_base "4.14.1.0"
@@ -22,71 +33,82 @@
   (major1) == 4 && (major2) == 14 && (minor) <= 1)
 #endif /* MIN_VERSION_base */
 
-/* package ghc-typelits-extra-0.4.1 */
-#ifndef VERSION_ghc_typelits_extra
-#define VERSION_ghc_typelits_extra "0.4.1"
-#endif /* VERSION_ghc_typelits_extra */
-#ifndef MIN_VERSION_ghc_typelits_extra
-#define MIN_VERSION_ghc_typelits_extra(major1,major2,minor) (\
-  (major1) <  0 || \
-  (major1) == 0 && (major2) <  4 || \
-  (major1) == 0 && (major2) == 4 && (minor) <= 1)
-#endif /* MIN_VERSION_ghc_typelits_extra */
-
-/* package integer-gmp-1.0.3.0 */
-#ifndef VERSION_integer_gmp
-#define VERSION_integer_gmp "1.0.3.0"
-#endif /* VERSION_integer_gmp */
-#ifndef MIN_VERSION_integer_gmp
-#define MIN_VERSION_integer_gmp(major1,major2,minor) (\
+/* package hedgehog-1.0.3 */
+#ifndef VERSION_hedgehog
+#define VERSION_hedgehog "1.0.3"
+#endif /* VERSION_hedgehog */
+#ifndef MIN_VERSION_hedgehog
+#define MIN_VERSION_hedgehog(major1,major2,minor) (\
   (major1) <  1 || \
   (major1) == 1 && (major2) <  0 || \
   (major1) == 1 && (major2) == 0 && (minor) <= 3)
-#endif /* MIN_VERSION_integer_gmp */
+#endif /* MIN_VERSION_hedgehog */
 
-/* package integer-logarithms-1.0.3.1 */
-#ifndef VERSION_integer_logarithms
-#define VERSION_integer_logarithms "1.0.3.1"
-#endif /* VERSION_integer_logarithms */
-#ifndef MIN_VERSION_integer_logarithms
-#define MIN_VERSION_integer_logarithms(major1,major2,minor) (\
-  (major1) <  1 || \
-  (major1) == 1 && (major2) <  0 || \
-  (major1) == 1 && (major2) == 0 && (minor) <= 3)
-#endif /* MIN_VERSION_integer_logarithms */
+/* package hspec-2.7.2 */
+#ifndef VERSION_hspec
+#define VERSION_hspec "2.7.2"
+#endif /* VERSION_hspec */
+#ifndef MIN_VERSION_hspec
+#define MIN_VERSION_hspec(major1,major2,minor) (\
+  (major1) <  2 || \
+  (major1) == 2 && (major2) <  7 || \
+  (major1) == 2 && (major2) == 7 && (minor) <= 2)
+#endif /* MIN_VERSION_hspec */
 
-/* package number-length-0.2.1.0 */
-#ifndef VERSION_number_length
-#define VERSION_number_length "0.2.1.0"
-#endif /* VERSION_number_length */
-#ifndef MIN_VERSION_number_length
-#define MIN_VERSION_number_length(major1,major2,minor) (\
+/* package hspec-core-2.7.4 */
+#ifndef VERSION_hspec_core
+#define VERSION_hspec_core "2.7.4"
+#endif /* VERSION_hspec_core */
+#ifndef MIN_VERSION_hspec_core
+#define MIN_VERSION_hspec_core(major1,major2,minor) (\
+  (major1) <  2 || \
+  (major1) == 2 && (major2) <  7 || \
+  (major1) == 2 && (major2) == 7 && (minor) <= 4)
+#endif /* MIN_VERSION_hspec_core */
+
+/* package hspec-hedgehog-0.0.1.2 */
+#ifndef VERSION_hspec_hedgehog
+#define VERSION_hspec_hedgehog "0.0.1.2"
+#endif /* VERSION_hspec_hedgehog */
+#ifndef MIN_VERSION_hspec_hedgehog
+#define MIN_VERSION_hspec_hedgehog(major1,major2,minor) (\
   (major1) <  0 || \
-  (major1) == 0 && (major2) <  2 || \
-  (major1) == 0 && (major2) == 2 && (minor) <= 1)
-#endif /* MIN_VERSION_number_length */
+  (major1) == 0 && (major2) <  0 || \
+  (major1) == 0 && (major2) == 0 && (minor) <= 1)
+#endif /* MIN_VERSION_hspec_hedgehog */
 
-/* package parallel-3.2.2.0 */
-#ifndef VERSION_parallel
-#define VERSION_parallel "3.2.2.0"
-#endif /* VERSION_parallel */
-#ifndef MIN_VERSION_parallel
-#define MIN_VERSION_parallel(major1,major2,minor) (\
-  (major1) <  3 || \
-  (major1) == 3 && (major2) <  2 || \
-  (major1) == 3 && (major2) == 2 && (minor) <= 2)
-#endif /* MIN_VERSION_parallel */
+/* package start-0.1.0.0 */
+#ifndef VERSION_start
+#define VERSION_start "0.1.0.0"
+#endif /* VERSION_start */
+#ifndef MIN_VERSION_start
+#define MIN_VERSION_start(major1,major2,minor) (\
+  (major1) <  0 || \
+  (major1) == 0 && (major2) <  1 || \
+  (major1) == 0 && (major2) == 1 && (minor) <= 0)
+#endif /* MIN_VERSION_start */
 
-/* package time-1.9.3 */
-#ifndef VERSION_time
-#define VERSION_time "1.9.3"
-#endif /* VERSION_time */
-#ifndef MIN_VERSION_time
-#define MIN_VERSION_time(major1,major2,minor) (\
-  (major1) <  1 || \
-  (major1) == 1 && (major2) <  9 || \
-  (major1) == 1 && (major2) == 9 && (minor) <= 3)
-#endif /* MIN_VERSION_time */
+/* package test-framework-0.8.2.0 */
+#ifndef VERSION_test_framework
+#define VERSION_test_framework "0.8.2.0"
+#endif /* VERSION_test_framework */
+#ifndef MIN_VERSION_test_framework
+#define MIN_VERSION_test_framework(major1,major2,minor) (\
+  (major1) <  0 || \
+  (major1) == 0 && (major2) <  8 || \
+  (major1) == 0 && (major2) == 8 && (minor) <= 2)
+#endif /* MIN_VERSION_test_framework */
+
+/* package test-framework-quickcheck2-0.3.0.5 */
+#ifndef VERSION_test_framework_quickcheck2
+#define VERSION_test_framework_quickcheck2 "0.3.0.5"
+#endif /* VERSION_test_framework_quickcheck2 */
+#ifndef MIN_VERSION_test_framework_quickcheck2
+#define MIN_VERSION_test_framework_quickcheck2(major1,major2,minor) (\
+  (major1) <  0 || \
+  (major1) == 0 && (major2) <  3 || \
+  (major1) == 0 && (major2) == 3 && (minor) <= 0)
+#endif /* MIN_VERSION_test_framework_quickcheck2 */
 
 /* tool doctest-0.17 */
 #ifndef TOOL_VERSION_doctest
@@ -187,11 +209,8 @@
   (major1) == 8 && (major2) == 10 && (minor) <= 2)
 #endif /* MIN_TOOL_VERSION_runghc */
 
-#ifndef CURRENT_PACKAGE_KEY
-#define CURRENT_PACKAGE_KEY "start-0.1.0.0-3u6XfnsQ5P39hn8qFVPpM"
-#endif /* CURRENT_PACKAGE_KEY */
 #ifndef CURRENT_COMPONENT_ID
-#define CURRENT_COMPONENT_ID "start-0.1.0.0-3u6XfnsQ5P39hn8qFVPpM"
+#define CURRENT_COMPONENT_ID "start-0.1.0.0-6OQVW6OrUMSIh7lnKWcxjI-start-test"
 #endif /* CURRENT_COMPONENT_ID */
 #ifndef CURRENT_PACKAGE_VERSION
 #define CURRENT_PACKAGE_VERSION "0.1.0.0"

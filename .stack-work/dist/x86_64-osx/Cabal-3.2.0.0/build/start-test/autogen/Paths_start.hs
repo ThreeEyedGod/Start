@@ -30,7 +30,7 @@ version = Version [0,1,0,0] []
 bindir, libdir, dynlibdir, datadir, libexecdir, sysconfdir :: FilePath
 
 bindir     = "/Users/bumrap/Documents/code/start/.stack-work/install/x86_64-osx/d93d48b24b077668d9bf23537153857474f7effd2ec19d4ae257992a0d33b1ea/8.10.2/bin"
-libdir     = "/Users/bumrap/Documents/code/start/.stack-work/install/x86_64-osx/d93d48b24b077668d9bf23537153857474f7effd2ec19d4ae257992a0d33b1ea/8.10.2/lib/x86_64-osx-ghc-8.10.2/start-0.1.0.0-3u6XfnsQ5P39hn8qFVPpM"
+libdir     = "/Users/bumrap/Documents/code/start/.stack-work/install/x86_64-osx/d93d48b24b077668d9bf23537153857474f7effd2ec19d4ae257992a0d33b1ea/8.10.2/lib/x86_64-osx-ghc-8.10.2/start-0.1.0.0-6OQVW6OrUMSIh7lnKWcxjI-start-test"
 dynlibdir  = "/Users/bumrap/Documents/code/start/.stack-work/install/x86_64-osx/d93d48b24b077668d9bf23537153857474f7effd2ec19d4ae257992a0d33b1ea/8.10.2/lib/x86_64-osx-ghc-8.10.2"
 datadir    = "/Users/bumrap/Documents/code/start/.stack-work/install/x86_64-osx/d93d48b24b077668d9bf23537153857474f7effd2ec19d4ae257992a0d33b1ea/8.10.2/share/x86_64-osx-ghc-8.10.2/start-0.1.0.0"
 libexecdir = "/Users/bumrap/Documents/code/start/.stack-work/install/x86_64-osx/d93d48b24b077668d9bf23537153857474f7effd2ec19d4ae257992a0d33b1ea/8.10.2/libexec/x86_64-osx-ghc-8.10.2/start-0.1.0.0"

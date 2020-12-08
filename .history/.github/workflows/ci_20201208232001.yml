@@ -29,9 +29,6 @@ jobs:
     - uses: mrkkrp/ormolu-action@v1
       name: Ormolu formatting 
 
-   # - uses: domdere/haskell-lint-action@master
-   #   name: hlinter
-        
     - uses: actions/cache@v1
       name: Cache ~/.stack
       with:

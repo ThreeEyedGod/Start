@@ -66,17 +66,6 @@
   (major1) == 1 && (major2) == 9 && (minor) <= 3)
 #endif /* MIN_VERSION_time */
 
-/* tool cpphs-1.20.9 */
-#ifndef TOOL_VERSION_cpphs
-#define TOOL_VERSION_cpphs "1.20.9"
-#endif /* TOOL_VERSION_cpphs */
-#ifndef MIN_TOOL_VERSION_cpphs
-#define MIN_TOOL_VERSION_cpphs(major1,major2,minor) (\
-  (major1) <  1 || \
-  (major1) == 1 && (major2) <  20 || \
-  (major1) == 1 && (major2) == 20 && (minor) <= 9)
-#endif /* MIN_TOOL_VERSION_cpphs */
-
 /* tool doctest-0.17 */
 #ifndef TOOL_VERSION_doctest
 #define TOOL_VERSION_doctest "0.17"
@@ -132,17 +121,6 @@
   (major1) == 2 && (major2) == 24 && (minor) <= 0)
 #endif /* MIN_TOOL_VERSION_haddock */
 
-/* tool happy-1.19.12 */
-#ifndef TOOL_VERSION_happy
-#define TOOL_VERSION_happy "1.19.12"
-#endif /* TOOL_VERSION_happy */
-#ifndef MIN_TOOL_VERSION_happy
-#define MIN_TOOL_VERSION_happy(major1,major2,minor) (\
-  (major1) <  1 || \
-  (major1) == 1 && (major2) <  19 || \
-  (major1) == 1 && (major2) == 19 && (minor) <= 12)
-#endif /* MIN_TOOL_VERSION_happy */
-
 /* tool hpc-0.68 */
 #ifndef TOOL_VERSION_hpc
 #define TOOL_VERSION_hpc "0.68"
@@ -165,17 +143,6 @@
   (major1) == 0 && (major2) == 68 && (minor) <= 7)
 #endif /* MIN_TOOL_VERSION_hsc2hs */
 
-/* tool hscolour-1.24 */
-#ifndef TOOL_VERSION_hscolour
-#define TOOL_VERSION_hscolour "1.24"
-#endif /* TOOL_VERSION_hscolour */
-#ifndef MIN_TOOL_VERSION_hscolour
-#define MIN_TOOL_VERSION_hscolour(major1,major2,minor) (\
-  (major1) <  1 || \
-  (major1) == 1 && (major2) <  24 || \
-  (major1) == 1 && (major2) == 24 && (minor) <= 0)
-#endif /* MIN_TOOL_VERSION_hscolour */
-
 /* tool runghc-8.10.2 */
 #ifndef TOOL_VERSION_runghc
 #define TOOL_VERSION_runghc "8.10.2"
@@ -188,7 +155,7 @@
 #endif /* MIN_TOOL_VERSION_runghc */
 
 #ifndef CURRENT_COMPONENT_ID
-#define CURRENT_COMPONENT_ID "start-0.1.0.0-2loXNs1j8jODrAu8TNyU0i-start-exe"
+#define CURRENT_COMPONENT_ID "start-0.1.0.0-5q8YXYhztc1EubK9krsXxL-start-exe"
 #endif /* CURRENT_COMPONENT_ID */
 #ifndef CURRENT_PACKAGE_VERSION
 #define CURRENT_PACKAGE_VERSION "0.1.0.0"

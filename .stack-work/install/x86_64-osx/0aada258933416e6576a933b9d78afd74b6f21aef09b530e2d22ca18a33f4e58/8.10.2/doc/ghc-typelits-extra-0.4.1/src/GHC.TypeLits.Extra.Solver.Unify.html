@@ -1,0 +1,843 @@
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd"><html xmlns="http://www.w3.org/1999/xhtml"><head><link rel="stylesheet" type="text/css" href="style.css" /><script type="text/javascript" src="highlight.js"></script></head><body><pre><span class="hs-comment">{-|
+Copyright  :  (C) 2015-2016, University of Twente,
+                  2017     , QBayLogic B.V.
+License    :  BSD2 (see the file LICENSE)
+Maintainer :  Christiaan Baaij &lt;christiaan.baaij@gmail.com&gt;
+-}</span><span>
+</span><span id="line-7"></span><span>
+</span><span id="line-8"></span><span class="hs-pragma">{-# LANGUAGE CPP #-}</span><span>
+</span><span id="line-9"></span><span>
+</span><span id="line-10"></span><span class="hs-keyword">module</span><span> </span><span class="hs-identifier">GHC.TypeLits.Extra.Solver.Unify</span><span>
+</span><span id="line-11"></span><span>  </span><span class="hs-special">(</span><span> </span><span class="annot"><a href="GHC.TypeLits.Extra.Solver.Operations.html#ExtraDefs"><span class="hs-identifier">ExtraDefs</span></a></span><span> </span><span class="hs-special">(</span><span class="hs-glyph">..</span><span class="hs-special">)</span><span>
+</span><span id="line-12"></span><span>  </span><span class="hs-special">,</span><span> </span><span class="annot"><a href="GHC.TypeLits.Extra.Solver.Unify.html#UnifyResult"><span class="hs-identifier">UnifyResult</span></a></span><span> </span><span class="hs-special">(</span><span class="hs-glyph">..</span><span class="hs-special">)</span><span>
+</span><span id="line-13"></span><span>  </span><span class="hs-special">,</span><span> </span><span class="annot"><a href="GHC.TypeLits.Extra.Solver.Operations.html#NormaliseResult"><span class="hs-identifier">NormaliseResult</span></a></span><span>
+</span><span id="line-14"></span><span>  </span><span class="hs-special">,</span><span> </span><span class="annot"><a href="GHC.TypeLits.Extra.Solver.Unify.html#normaliseNat"><span class="hs-identifier">normaliseNat</span></a></span><span>
+</span><span id="line-15"></span><span>  </span><span class="hs-special">,</span><span> </span><span class="annot"><a href="GHC.TypeLits.Extra.Solver.Unify.html#unifyExtra"><span class="hs-identifier">unifyExtra</span></a></span><span>
+</span><span id="line-16"></span><span>  </span><span class="hs-special">)</span><span>
+</span><span id="line-17"></span><span class="hs-keyword">where</span><span>
+</span><span id="line-18"></span><span>
+</span><span id="line-19"></span><span class="hs-comment">-- external</span><span>
+</span><span id="line-20"></span><span class="hs-keyword">import</span><span> </span><span class="annot"><span class="hs-identifier">Control.Monad.Trans.Class</span></span><span>    </span><span class="hs-special">(</span><span class="annot"><span class="hs-identifier">lift</span></span><span class="hs-special">)</span><span>
+</span><span id="line-21"></span><span class="hs-keyword">import</span><span> </span><span class="annot"><span class="hs-identifier">Control.Monad.Trans.Maybe</span></span><span>    </span><span class="hs-special">(</span><span class="annot"><span class="hs-identifier">MaybeT</span></span><span> </span><span class="hs-special">(</span><span class="hs-glyph">..</span><span class="hs-special">)</span><span class="hs-special">)</span><span>
+</span><span id="line-22"></span><span class="hs-keyword">import</span><span> </span><span class="annot"><span class="hs-identifier">Data.Maybe</span></span><span>                   </span><span class="hs-special">(</span><span class="annot"><span class="hs-identifier">catMaybes</span></span><span class="hs-special">)</span><span>
+</span><span id="line-23"></span><span class="hs-keyword">import</span><span> </span><span class="annot"><span class="hs-identifier">Data.Function</span></span><span>                </span><span class="hs-special">(</span><span class="annot"><span class="hs-identifier">on</span></span><span class="hs-special">)</span><span>
+</span><span id="line-24"></span><span class="hs-keyword">import</span><span> </span><span class="annot"><span class="hs-identifier">GHC.TypeLits.Normalise.Unify</span></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="hs-identifier">CType</span></span><span> </span><span class="hs-special">(</span><span class="hs-glyph">..</span><span class="hs-special">)</span><span class="hs-special">)</span><span>
+</span><span id="line-25"></span><span>
+</span><span id="line-26"></span><span class="hs-comment">-- GHC API</span><span>
+</span><span id="line-27"></span><span class="hs-keyword">import</span><span> </span><span class="annot"><span class="hs-identifier">Outputable</span></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="hs-identifier">Outputable</span></span><span> </span><span class="hs-special">(</span><span class="hs-glyph">..</span><span class="hs-special">)</span><span class="hs-special">,</span><span> </span><span class="annot"><span class="hs-operator">($$)</span></span><span class="hs-special">,</span><span> </span><span class="annot"><span class="hs-identifier">text</span></span><span class="hs-special">)</span><span>
+</span><span id="line-28"></span><span class="hs-keyword">import</span><span> </span><span class="annot"><span class="hs-identifier">TcPluginM</span></span><span>  </span><span class="hs-special">(</span><span class="annot"><span class="hs-identifier">TcPluginM</span></span><span class="hs-special">,</span><span> </span><span class="annot"><span class="hs-identifier">tcPluginTrace</span></span><span class="hs-special">)</span><span>
+</span><span id="line-29"></span><span class="hs-keyword">import</span><span> </span><span class="annot"><span class="hs-identifier">TcTypeNats</span></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="hs-identifier">typeNatExpTyCon</span></span><span class="hs-special">)</span><span>
+</span><span id="line-30"></span><span class="hs-keyword">import</span><span> </span><span class="annot"><span class="hs-identifier">Type</span></span><span>       </span><span class="hs-special">(</span><span class="annot"><span class="hs-identifier">TyVar</span></span><span class="hs-special">,</span><span> </span><span class="annot"><span class="hs-identifier">coreView</span></span><span class="hs-special">)</span><span>
+</span><span id="line-31"></span><span class="hs-keyword">import</span><span> </span><span class="annot"><span class="hs-identifier">TyCoRep</span></span><span>    </span><span class="hs-special">(</span><span class="annot"><span class="hs-identifier">Type</span></span><span> </span><span class="hs-special">(</span><span class="hs-glyph">..</span><span class="hs-special">)</span><span class="hs-special">,</span><span> </span><span class="annot"><span class="hs-identifier">TyLit</span></span><span> </span><span class="hs-special">(</span><span class="hs-glyph">..</span><span class="hs-special">)</span><span class="hs-special">)</span><span>
+</span><span id="line-32"></span><span class="hs-keyword">import</span><span> </span><span class="annot"><span class="hs-identifier">UniqSet</span></span><span>    </span><span class="hs-special">(</span><span class="annot"><span class="hs-identifier">UniqSet</span></span><span class="hs-special">,</span><span> </span><span class="annot"><span class="hs-identifier">emptyUniqSet</span></span><span class="hs-special">,</span><span> </span><span class="annot"><span class="hs-identifier">unionUniqSets</span></span><span class="hs-special">,</span><span> </span><span class="annot"><span class="hs-identifier">unitUniqSet</span></span><span class="hs-special">)</span><span class="hs-cpp">
+
+#if MIN_VERSION_ghc(8,10,0)
+</span><span class="hs-keyword">import</span><span> </span><span class="annot"><span class="hs-identifier">Constraint</span></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="hs-identifier">Ct</span></span><span class="hs-special">)</span><span class="hs-cpp">
+#else
+</span><span class="hs-keyword">import</span><span> </span><span class="hs-identifier">TcRnMonad</span><span>  </span><span class="hs-special">(</span><span class="hs-identifier">Ct</span><span class="hs-special">)</span><span class="hs-cpp">
+#endif
+</span><span>
+</span><span id="line-40"></span><span class="hs-comment">-- internal</span><span>
+</span><span id="line-41"></span><span class="hs-keyword">import</span><span> </span><span class="annot"><a href="GHC.TypeLits.Extra.Solver.Operations.html"><span class="hs-identifier">GHC.TypeLits.Extra.Solver.Operations</span></a></span><span>
+</span><span id="line-42"></span><span>
+</span><span id="line-43"></span><span class="annot"><a href="GHC.TypeLits.Extra.Solver.Unify.html#mergeNormResWith"><span class="hs-identifier hs-type">mergeNormResWith</span></a></span><span>
+</span><span id="line-44"></span><span>  </span><span class="hs-glyph">::</span><span> </span><span class="hs-special">(</span><span class="annot"><a href="GHC.TypeLits.Extra.Solver.Operations.html#ExtraOp"><span class="hs-identifier hs-type">ExtraOp</span></a></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><a href="GHC.TypeLits.Extra.Solver.Operations.html#ExtraOp"><span class="hs-identifier hs-type">ExtraOp</span></a></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="hs-identifier hs-type">MaybeT</span></span><span> </span><span class="annot"><span class="hs-identifier hs-type">TcPluginM</span></span><span> </span><span class="annot"><a href="GHC.TypeLits.Extra.Solver.Operations.html#NormaliseResult"><span class="hs-identifier hs-type">NormaliseResult</span></a></span><span class="hs-special">)</span><span>
+</span><span id="line-45"></span><span>  </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="hs-identifier hs-type">MaybeT</span></span><span> </span><span class="annot"><span class="hs-identifier hs-type">TcPluginM</span></span><span> </span><span class="annot"><a href="GHC.TypeLits.Extra.Solver.Operations.html#NormaliseResult"><span class="hs-identifier hs-type">NormaliseResult</span></a></span><span>
+</span><span id="line-46"></span><span>  </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="hs-identifier hs-type">MaybeT</span></span><span> </span><span class="annot"><span class="hs-identifier hs-type">TcPluginM</span></span><span> </span><span class="annot"><a href="GHC.TypeLits.Extra.Solver.Operations.html#NormaliseResult"><span class="hs-identifier hs-type">NormaliseResult</span></a></span><span>
+</span><span id="line-47"></span><span>  </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="hs-identifier hs-type">MaybeT</span></span><span> </span><span class="annot"><span class="hs-identifier hs-type">TcPluginM</span></span><span> </span><span class="annot"><a href="GHC.TypeLits.Extra.Solver.Operations.html#NormaliseResult"><span class="hs-identifier hs-type">NormaliseResult</span></a></span><span>
+</span><span id="line-48"></span><span id="mergeNormResWith"><span class="annot"><span class="annottext">mergeNormResWith :: (ExtraOp -&gt; ExtraOp -&gt; MaybeT TcPluginM NormaliseResult)
+-&gt; MaybeT TcPluginM NormaliseResult
+-&gt; MaybeT TcPluginM NormaliseResult
+-&gt; MaybeT TcPluginM NormaliseResult
+</span><a href="GHC.TypeLits.Extra.Solver.Unify.html#mergeNormResWith"><span class="hs-identifier hs-var hs-var">mergeNormResWith</span></a></span></span><span> </span><span id="local-6989586621679112240"><span class="annot"><span class="annottext">ExtraOp -&gt; ExtraOp -&gt; MaybeT TcPluginM NormaliseResult
+</span><a href="#local-6989586621679112240"><span class="hs-identifier hs-var">f</span></a></span></span><span> </span><span id="local-6989586621679112239"><span class="annot"><span class="annottext">MaybeT TcPluginM NormaliseResult
+</span><a href="#local-6989586621679112239"><span class="hs-identifier hs-var">x</span></a></span></span><span> </span><span id="local-6989586621679112238"><span class="annot"><span class="annottext">MaybeT TcPluginM NormaliseResult
+</span><a href="#local-6989586621679112238"><span class="hs-identifier hs-var">y</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="hs-keyword">do</span><span>
+</span><span id="line-49"></span><span>  </span><span class="hs-special">(</span><span id="local-6989586621679112237"><span class="annot"><span class="annottext">ExtraOp
+</span><a href="#local-6989586621679112237"><span class="hs-identifier hs-var">x'</span></a></span></span><span class="hs-special">,</span><span> </span><span id="local-6989586621679112236"><span class="annot"><span class="annottext">Normalised
+</span><a href="#local-6989586621679112236"><span class="hs-identifier hs-var">n1</span></a></span></span><span class="hs-special">)</span><span> </span><span class="hs-glyph">&lt;-</span><span> </span><span class="annot"><span class="annottext">MaybeT TcPluginM NormaliseResult
+</span><a href="#local-6989586621679112239"><span class="hs-identifier hs-var">x</span></a></span><span>
+</span><span id="line-50"></span><span>  </span><span class="hs-special">(</span><span id="local-6989586621679112235"><span class="annot"><span class="annottext">ExtraOp
+</span><a href="#local-6989586621679112235"><span class="hs-identifier hs-var">y'</span></a></span></span><span class="hs-special">,</span><span> </span><span id="local-6989586621679112234"><span class="annot"><span class="annottext">Normalised
+</span><a href="#local-6989586621679112234"><span class="hs-identifier hs-var">n2</span></a></span></span><span class="hs-special">)</span><span> </span><span class="hs-glyph">&lt;-</span><span> </span><span class="annot"><span class="annottext">MaybeT TcPluginM NormaliseResult
+</span><a href="#local-6989586621679112238"><span class="hs-identifier hs-var">y</span></a></span><span>
+</span><span id="line-51"></span><span>  </span><span class="hs-special">(</span><span id="local-6989586621679112233"><span class="annot"><span class="annottext">ExtraOp
+</span><a href="#local-6989586621679112233"><span class="hs-identifier hs-var">res</span></a></span></span><span class="hs-special">,</span><span> </span><span id="local-6989586621679112232"><span class="annot"><span class="annottext">Normalised
+</span><a href="#local-6989586621679112232"><span class="hs-identifier hs-var">n3</span></a></span></span><span class="hs-special">)</span><span> </span><span class="hs-glyph">&lt;-</span><span> </span><span class="annot"><span class="annottext">ExtraOp -&gt; ExtraOp -&gt; MaybeT TcPluginM NormaliseResult
+</span><a href="#local-6989586621679112240"><span class="hs-identifier hs-var">f</span></a></span><span> </span><span class="annot"><span class="annottext">ExtraOp
+</span><a href="#local-6989586621679112237"><span class="hs-identifier hs-var">x'</span></a></span><span> </span><span class="annot"><span class="annottext">ExtraOp
+</span><a href="#local-6989586621679112235"><span class="hs-identifier hs-var">y'</span></a></span><span>
+</span><span id="line-52"></span><span>  </span><span class="annot"><span class="annottext">NormaliseResult -&gt; MaybeT TcPluginM NormaliseResult
+forall (f :: * -&gt; *) a. Applicative f =&gt; a -&gt; f a
+</span><span class="hs-identifier hs-var">pure</span></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">ExtraOp
+</span><a href="#local-6989586621679112233"><span class="hs-identifier hs-var">res</span></a></span><span class="hs-special">,</span><span> </span><span class="annot"><span class="annottext">Normalised
+</span><a href="#local-6989586621679112236"><span class="hs-identifier hs-var">n1</span></a></span><span> </span><span class="annot"><span class="annottext">Normalised -&gt; Normalised -&gt; Normalised
+</span><a href="GHC.TypeLits.Extra.Solver.Operations.html#mergeNormalised"><span class="hs-operator hs-var">`mergeNormalised`</span></a></span><span> </span><span class="annot"><span class="annottext">Normalised
+</span><a href="#local-6989586621679112234"><span class="hs-identifier hs-var">n2</span></a></span><span> </span><span class="annot"><span class="annottext">Normalised -&gt; Normalised -&gt; Normalised
+</span><a href="GHC.TypeLits.Extra.Solver.Operations.html#mergeNormalised"><span class="hs-operator hs-var">`mergeNormalised`</span></a></span><span> </span><span class="annot"><span class="annottext">Normalised
+</span><a href="#local-6989586621679112232"><span class="hs-identifier hs-var">n3</span></a></span><span class="hs-special">)</span><span>
+</span><span id="line-53"></span><span>
+</span><span id="line-54"></span><span>
+</span><span id="line-55"></span><span class="annot"><a href="GHC.TypeLits.Extra.Solver.Unify.html#normaliseNat"><span class="hs-identifier hs-type">normaliseNat</span></a></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="annot"><a href="GHC.TypeLits.Extra.Solver.Operations.html#ExtraDefs"><span class="hs-identifier hs-type">ExtraDefs</span></a></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="hs-identifier hs-type">Type</span></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="hs-identifier hs-type">MaybeT</span></span><span> </span><span class="annot"><span class="hs-identifier hs-type">TcPluginM</span></span><span> </span><span class="annot"><a href="GHC.TypeLits.Extra.Solver.Operations.html#NormaliseResult"><span class="hs-identifier hs-type">NormaliseResult</span></a></span><span>
+</span><span id="line-56"></span><span id="normaliseNat"><span class="annot"><span class="annottext">normaliseNat :: ExtraDefs -&gt; Type -&gt; MaybeT TcPluginM NormaliseResult
+</span><a href="GHC.TypeLits.Extra.Solver.Unify.html#normaliseNat"><span class="hs-identifier hs-var hs-var">normaliseNat</span></a></span></span><span> </span><span id="local-6989586621679112230"><span class="annot"><span class="annottext">ExtraDefs
+</span><a href="#local-6989586621679112230"><span class="hs-identifier hs-var">defs</span></a></span></span><span> </span><span id="local-6989586621679112229"><span class="annot"><span class="annottext">Type
+</span><a href="#local-6989586621679112229"><span class="hs-identifier hs-var">ty</span></a></span></span><span> </span><span class="hs-glyph">|</span><span> </span><span class="annot"><span class="hs-identifier hs-type">Just</span></span><span> </span><span id="local-6989586621679112228"><span class="annot"><span class="annottext">Type
+</span><a href="#local-6989586621679112228"><span class="hs-identifier hs-var">ty1</span></a></span></span><span> </span><span class="hs-glyph">&lt;-</span><span> </span><span class="annot"><span class="annottext">Type -&gt; Maybe Type
+</span><span class="hs-identifier hs-var">coreView</span></span><span> </span><span class="annot"><span class="annottext">Type
+</span><a href="#local-6989586621679112229"><span class="hs-identifier hs-var">ty</span></a></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">ExtraDefs -&gt; Type -&gt; MaybeT TcPluginM NormaliseResult
+</span><a href="GHC.TypeLits.Extra.Solver.Unify.html#normaliseNat"><span class="hs-identifier hs-var">normaliseNat</span></a></span><span> </span><span class="annot"><span class="annottext">ExtraDefs
+</span><a href="#local-6989586621679112230"><span class="hs-identifier hs-var">defs</span></a></span><span> </span><span class="annot"><span class="annottext">Type
+</span><a href="#local-6989586621679112228"><span class="hs-identifier hs-var">ty1</span></a></span><span>
+</span><span id="line-57"></span><span class="annot"><a href="GHC.TypeLits.Extra.Solver.Unify.html#normaliseNat"><span class="hs-identifier hs-var">normaliseNat</span></a></span><span> </span><span class="annot"><span class="annottext">ExtraDefs
+</span><span class="hs-identifier">_</span></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="hs-identifier hs-type">TyVarTy</span></span><span> </span><span id="local-6989586621679112226"><span class="annot"><span class="annottext">Var
+</span><a href="#local-6989586621679112226"><span class="hs-identifier hs-var">v</span></a></span></span><span class="hs-special">)</span><span>          </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">NormaliseResult -&gt; MaybeT TcPluginM NormaliseResult
+forall (f :: * -&gt; *) a. Applicative f =&gt; a -&gt; f a
+</span><span class="hs-identifier hs-var">pure</span></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">Var -&gt; ExtraOp
+</span><a href="GHC.TypeLits.Extra.Solver.Operations.html#V"><span class="hs-identifier hs-var">V</span></a></span><span> </span><span class="annot"><span class="annottext">Var
+</span><a href="#local-6989586621679112226"><span class="hs-identifier hs-var">v</span></a></span><span class="hs-special">,</span><span> </span><span class="annot"><span class="annottext">Normalised
+</span><a href="GHC.TypeLits.Extra.Solver.Operations.html#Untouched"><span class="hs-identifier hs-var">Untouched</span></a></span><span class="hs-special">)</span><span>
+</span><span id="line-58"></span><span class="annot"><a href="GHC.TypeLits.Extra.Solver.Unify.html#normaliseNat"><span class="hs-identifier hs-var">normaliseNat</span></a></span><span> </span><span class="annot"><span class="annottext">ExtraDefs
+</span><span class="hs-identifier">_</span></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="hs-identifier hs-type">LitTy</span></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="hs-identifier hs-type">NumTyLit</span></span><span> </span><span id="local-6989586621679112221"><span class="annot"><span class="annottext">Integer
+</span><a href="#local-6989586621679112221"><span class="hs-identifier hs-var">i</span></a></span></span><span class="hs-special">)</span><span class="hs-special">)</span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">NormaliseResult -&gt; MaybeT TcPluginM NormaliseResult
+forall (f :: * -&gt; *) a. Applicative f =&gt; a -&gt; f a
+</span><span class="hs-identifier hs-var">pure</span></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">Integer -&gt; ExtraOp
+</span><a href="GHC.TypeLits.Extra.Solver.Operations.html#I"><span class="hs-identifier hs-var">I</span></a></span><span> </span><span class="annot"><span class="annottext">Integer
+</span><a href="#local-6989586621679112221"><span class="hs-identifier hs-var">i</span></a></span><span class="hs-special">,</span><span> </span><span class="annot"><span class="annottext">Normalised
+</span><a href="GHC.TypeLits.Extra.Solver.Operations.html#Untouched"><span class="hs-identifier hs-var">Untouched</span></a></span><span class="hs-special">)</span><span>
+</span><span id="line-59"></span><span class="annot"><a href="GHC.TypeLits.Extra.Solver.Unify.html#normaliseNat"><span class="hs-identifier hs-var">normaliseNat</span></a></span><span> </span><span id="local-6989586621679112219"><span class="annot"><span class="annottext">ExtraDefs
+</span><a href="#local-6989586621679112219"><span class="hs-identifier hs-var">defs</span></a></span></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="hs-identifier hs-type">TyConApp</span></span><span> </span><span id="local-6989586621679112217"><span class="annot"><span class="annottext">TyCon
+</span><a href="#local-6989586621679112217"><span class="hs-identifier hs-var">tc</span></a></span></span><span> </span><span class="hs-special">[</span><span id="local-6989586621679112216"><span class="annot"><span class="annottext">Type
+</span><a href="#local-6989586621679112216"><span class="hs-identifier hs-var">x</span></a></span></span><span class="hs-special">,</span><span id="local-6989586621679112215"><span class="annot"><span class="annottext">Type
+</span><a href="#local-6989586621679112215"><span class="hs-identifier hs-var">y</span></a></span></span><span class="hs-special">]</span><span class="hs-special">)</span><span>
+</span><span id="line-60"></span><span>  </span><span class="hs-glyph">|</span><span> </span><span class="annot"><span class="annottext">TyCon
+</span><a href="#local-6989586621679112217"><span class="hs-identifier hs-var">tc</span></a></span><span> </span><span class="annot"><span class="annottext">TyCon -&gt; TyCon -&gt; Bool
+forall a. Eq a =&gt; a -&gt; a -&gt; Bool
+</span><span class="hs-operator hs-var">==</span></span><span> </span><span class="annot"><span class="annottext">ExtraDefs -&gt; TyCon
+</span><a href="GHC.TypeLits.Extra.Solver.Operations.html#maxTyCon"><span class="hs-identifier hs-var hs-var">maxTyCon</span></a></span><span> </span><span class="annot"><span class="annottext">ExtraDefs
+</span><a href="#local-6989586621679112219"><span class="hs-identifier hs-var">defs</span></a></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">(ExtraOp -&gt; ExtraOp -&gt; MaybeT TcPluginM NormaliseResult)
+-&gt; MaybeT TcPluginM NormaliseResult
+-&gt; MaybeT TcPluginM NormaliseResult
+-&gt; MaybeT TcPluginM NormaliseResult
+</span><a href="GHC.TypeLits.Extra.Solver.Unify.html#mergeNormResWith"><span class="hs-identifier hs-var">mergeNormResWith</span></a></span><span> </span><span class="hs-special">(</span><span class="hs-glyph">\</span><span id="local-6989586621679112213"><span class="annot"><span class="annottext">ExtraOp
+</span><a href="#local-6989586621679112213"><span class="hs-identifier hs-var">x'</span></a></span></span><span> </span><span id="local-6989586621679112212"><span class="annot"><span class="annottext">ExtraOp
+</span><a href="#local-6989586621679112212"><span class="hs-identifier hs-var">y'</span></a></span></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="annottext">NormaliseResult -&gt; MaybeT TcPluginM NormaliseResult
+forall (m :: * -&gt; *) a. Monad m =&gt; a -&gt; m a
+</span><span class="hs-identifier hs-var">return</span></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">ExtraDefs -&gt; ExtraOp -&gt; ExtraOp -&gt; NormaliseResult
+</span><a href="GHC.TypeLits.Extra.Solver.Operations.html#mergeMax"><span class="hs-identifier hs-var">mergeMax</span></a></span><span> </span><span class="annot"><span class="annottext">ExtraDefs
+</span><a href="#local-6989586621679112219"><span class="hs-identifier hs-var">defs</span></a></span><span> </span><span class="annot"><span class="annottext">ExtraOp
+</span><a href="#local-6989586621679112213"><span class="hs-identifier hs-var">x'</span></a></span><span> </span><span class="annot"><span class="annottext">ExtraOp
+</span><a href="#local-6989586621679112212"><span class="hs-identifier hs-var">y'</span></a></span><span class="hs-special">)</span><span class="hs-special">)</span><span>
+</span><span id="line-61"></span><span>                                           </span><span class="hs-special">(</span><span class="annot"><span class="annottext">ExtraDefs -&gt; Type -&gt; MaybeT TcPluginM NormaliseResult
+</span><a href="GHC.TypeLits.Extra.Solver.Unify.html#normaliseNat"><span class="hs-identifier hs-var">normaliseNat</span></a></span><span> </span><span class="annot"><span class="annottext">ExtraDefs
+</span><a href="#local-6989586621679112219"><span class="hs-identifier hs-var">defs</span></a></span><span> </span><span class="annot"><span class="annottext">Type
+</span><a href="#local-6989586621679112216"><span class="hs-identifier hs-var">x</span></a></span><span class="hs-special">)</span><span>
+</span><span id="line-62"></span><span>                                           </span><span class="hs-special">(</span><span class="annot"><span class="annottext">ExtraDefs -&gt; Type -&gt; MaybeT TcPluginM NormaliseResult
+</span><a href="GHC.TypeLits.Extra.Solver.Unify.html#normaliseNat"><span class="hs-identifier hs-var">normaliseNat</span></a></span><span> </span><span class="annot"><span class="annottext">ExtraDefs
+</span><a href="#local-6989586621679112219"><span class="hs-identifier hs-var">defs</span></a></span><span> </span><span class="annot"><span class="annottext">Type
+</span><a href="#local-6989586621679112215"><span class="hs-identifier hs-var">y</span></a></span><span class="hs-special">)</span><span>
+</span><span id="line-63"></span><span>  </span><span class="hs-glyph">|</span><span> </span><span class="annot"><span class="annottext">TyCon
+</span><a href="#local-6989586621679112217"><span class="hs-identifier hs-var">tc</span></a></span><span> </span><span class="annot"><span class="annottext">TyCon -&gt; TyCon -&gt; Bool
+forall a. Eq a =&gt; a -&gt; a -&gt; Bool
+</span><span class="hs-operator hs-var">==</span></span><span> </span><span class="annot"><span class="annottext">ExtraDefs -&gt; TyCon
+</span><a href="GHC.TypeLits.Extra.Solver.Operations.html#minTyCon"><span class="hs-identifier hs-var hs-var">minTyCon</span></a></span><span> </span><span class="annot"><span class="annottext">ExtraDefs
+</span><a href="#local-6989586621679112219"><span class="hs-identifier hs-var">defs</span></a></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">(ExtraOp -&gt; ExtraOp -&gt; MaybeT TcPluginM NormaliseResult)
+-&gt; MaybeT TcPluginM NormaliseResult
+-&gt; MaybeT TcPluginM NormaliseResult
+-&gt; MaybeT TcPluginM NormaliseResult
+</span><a href="GHC.TypeLits.Extra.Solver.Unify.html#mergeNormResWith"><span class="hs-identifier hs-var">mergeNormResWith</span></a></span><span> </span><span class="hs-special">(</span><span class="hs-glyph">\</span><span id="local-6989586621679112209"><span class="annot"><span class="annottext">ExtraOp
+</span><a href="#local-6989586621679112209"><span class="hs-identifier hs-var">x'</span></a></span></span><span> </span><span id="local-6989586621679112208"><span class="annot"><span class="annottext">ExtraOp
+</span><a href="#local-6989586621679112208"><span class="hs-identifier hs-var">y'</span></a></span></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="annottext">NormaliseResult -&gt; MaybeT TcPluginM NormaliseResult
+forall (m :: * -&gt; *) a. Monad m =&gt; a -&gt; m a
+</span><span class="hs-identifier hs-var">return</span></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">ExtraDefs -&gt; ExtraOp -&gt; ExtraOp -&gt; NormaliseResult
+</span><a href="GHC.TypeLits.Extra.Solver.Operations.html#mergeMin"><span class="hs-identifier hs-var">mergeMin</span></a></span><span> </span><span class="annot"><span class="annottext">ExtraDefs
+</span><a href="#local-6989586621679112219"><span class="hs-identifier hs-var">defs</span></a></span><span> </span><span class="annot"><span class="annottext">ExtraOp
+</span><a href="#local-6989586621679112209"><span class="hs-identifier hs-var">x'</span></a></span><span> </span><span class="annot"><span class="annottext">ExtraOp
+</span><a href="#local-6989586621679112208"><span class="hs-identifier hs-var">y'</span></a></span><span class="hs-special">)</span><span class="hs-special">)</span><span>
+</span><span id="line-64"></span><span>                                           </span><span class="hs-special">(</span><span class="annot"><span class="annottext">ExtraDefs -&gt; Type -&gt; MaybeT TcPluginM NormaliseResult
+</span><a href="GHC.TypeLits.Extra.Solver.Unify.html#normaliseNat"><span class="hs-identifier hs-var">normaliseNat</span></a></span><span> </span><span class="annot"><span class="annottext">ExtraDefs
+</span><a href="#local-6989586621679112219"><span class="hs-identifier hs-var">defs</span></a></span><span> </span><span class="annot"><span class="annottext">Type
+</span><a href="#local-6989586621679112216"><span class="hs-identifier hs-var">x</span></a></span><span class="hs-special">)</span><span>
+</span><span id="line-65"></span><span>                                           </span><span class="hs-special">(</span><span class="annot"><span class="annottext">ExtraDefs -&gt; Type -&gt; MaybeT TcPluginM NormaliseResult
+</span><a href="GHC.TypeLits.Extra.Solver.Unify.html#normaliseNat"><span class="hs-identifier hs-var">normaliseNat</span></a></span><span> </span><span class="annot"><span class="annottext">ExtraDefs
+</span><a href="#local-6989586621679112219"><span class="hs-identifier hs-var">defs</span></a></span><span> </span><span class="annot"><span class="annottext">Type
+</span><a href="#local-6989586621679112215"><span class="hs-identifier hs-var">y</span></a></span><span class="hs-special">)</span><span>
+</span><span id="line-66"></span><span>  </span><span class="hs-glyph">|</span><span> </span><span class="annot"><span class="annottext">TyCon
+</span><a href="#local-6989586621679112217"><span class="hs-identifier hs-var">tc</span></a></span><span> </span><span class="annot"><span class="annottext">TyCon -&gt; TyCon -&gt; Bool
+forall a. Eq a =&gt; a -&gt; a -&gt; Bool
+</span><span class="hs-operator hs-var">==</span></span><span> </span><span class="annot"><span class="annottext">ExtraDefs -&gt; TyCon
+</span><a href="GHC.TypeLits.Extra.Solver.Operations.html#divTyCon"><span class="hs-identifier hs-var hs-var">divTyCon</span></a></span><span> </span><span class="annot"><span class="annottext">ExtraDefs
+</span><a href="#local-6989586621679112219"><span class="hs-identifier hs-var">defs</span></a></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">(ExtraOp -&gt; ExtraOp -&gt; MaybeT TcPluginM NormaliseResult)
+-&gt; MaybeT TcPluginM NormaliseResult
+-&gt; MaybeT TcPluginM NormaliseResult
+-&gt; MaybeT TcPluginM NormaliseResult
+</span><a href="GHC.TypeLits.Extra.Solver.Unify.html#mergeNormResWith"><span class="hs-identifier hs-var">mergeNormResWith</span></a></span><span> </span><span class="hs-special">(</span><span class="hs-glyph">\</span><span id="local-6989586621679112205"><span class="annot"><span class="annottext">ExtraOp
+</span><a href="#local-6989586621679112205"><span class="hs-identifier hs-var">x'</span></a></span></span><span> </span><span id="local-6989586621679112204"><span class="annot"><span class="annottext">ExtraOp
+</span><a href="#local-6989586621679112204"><span class="hs-identifier hs-var">y'</span></a></span></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="annottext">TcPluginM (Maybe NormaliseResult)
+-&gt; MaybeT TcPluginM NormaliseResult
+forall (m :: * -&gt; *) a. m (Maybe a) -&gt; MaybeT m a
+</span><span class="hs-identifier hs-var">MaybeT</span></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">Maybe NormaliseResult -&gt; TcPluginM (Maybe NormaliseResult)
+forall (m :: * -&gt; *) a. Monad m =&gt; a -&gt; m a
+</span><span class="hs-identifier hs-var">return</span></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">ExtraOp -&gt; ExtraOp -&gt; Maybe NormaliseResult
+</span><a href="GHC.TypeLits.Extra.Solver.Operations.html#mergeDiv"><span class="hs-identifier hs-var">mergeDiv</span></a></span><span> </span><span class="annot"><span class="annottext">ExtraOp
+</span><a href="#local-6989586621679112205"><span class="hs-identifier hs-var">x'</span></a></span><span> </span><span class="annot"><span class="annottext">ExtraOp
+</span><a href="#local-6989586621679112204"><span class="hs-identifier hs-var">y'</span></a></span><span class="hs-special">)</span><span class="hs-special">)</span><span class="hs-special">)</span><span>
+</span><span id="line-67"></span><span>                                           </span><span class="hs-special">(</span><span class="annot"><span class="annottext">ExtraDefs -&gt; Type -&gt; MaybeT TcPluginM NormaliseResult
+</span><a href="GHC.TypeLits.Extra.Solver.Unify.html#normaliseNat"><span class="hs-identifier hs-var">normaliseNat</span></a></span><span> </span><span class="annot"><span class="annottext">ExtraDefs
+</span><a href="#local-6989586621679112219"><span class="hs-identifier hs-var">defs</span></a></span><span> </span><span class="annot"><span class="annottext">Type
+</span><a href="#local-6989586621679112216"><span class="hs-identifier hs-var">x</span></a></span><span class="hs-special">)</span><span>
+</span><span id="line-68"></span><span>                                           </span><span class="hs-special">(</span><span class="annot"><span class="annottext">ExtraDefs -&gt; Type -&gt; MaybeT TcPluginM NormaliseResult
+</span><a href="GHC.TypeLits.Extra.Solver.Unify.html#normaliseNat"><span class="hs-identifier hs-var">normaliseNat</span></a></span><span> </span><span class="annot"><span class="annottext">ExtraDefs
+</span><a href="#local-6989586621679112219"><span class="hs-identifier hs-var">defs</span></a></span><span> </span><span class="annot"><span class="annottext">Type
+</span><a href="#local-6989586621679112215"><span class="hs-identifier hs-var">y</span></a></span><span class="hs-special">)</span><span>
+</span><span id="line-69"></span><span>  </span><span class="hs-glyph">|</span><span> </span><span class="annot"><span class="annottext">TyCon
+</span><a href="#local-6989586621679112217"><span class="hs-identifier hs-var">tc</span></a></span><span> </span><span class="annot"><span class="annottext">TyCon -&gt; TyCon -&gt; Bool
+forall a. Eq a =&gt; a -&gt; a -&gt; Bool
+</span><span class="hs-operator hs-var">==</span></span><span> </span><span class="annot"><span class="annottext">ExtraDefs -&gt; TyCon
+</span><a href="GHC.TypeLits.Extra.Solver.Operations.html#modTyCon"><span class="hs-identifier hs-var hs-var">modTyCon</span></a></span><span> </span><span class="annot"><span class="annottext">ExtraDefs
+</span><a href="#local-6989586621679112219"><span class="hs-identifier hs-var">defs</span></a></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">(ExtraOp -&gt; ExtraOp -&gt; MaybeT TcPluginM NormaliseResult)
+-&gt; MaybeT TcPluginM NormaliseResult
+-&gt; MaybeT TcPluginM NormaliseResult
+-&gt; MaybeT TcPluginM NormaliseResult
+</span><a href="GHC.TypeLits.Extra.Solver.Unify.html#mergeNormResWith"><span class="hs-identifier hs-var">mergeNormResWith</span></a></span><span> </span><span class="hs-special">(</span><span class="hs-glyph">\</span><span id="local-6989586621679112200"><span class="annot"><span class="annottext">ExtraOp
+</span><a href="#local-6989586621679112200"><span class="hs-identifier hs-var">x'</span></a></span></span><span> </span><span id="local-6989586621679112199"><span class="annot"><span class="annottext">ExtraOp
+</span><a href="#local-6989586621679112199"><span class="hs-identifier hs-var">y'</span></a></span></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="annottext">TcPluginM (Maybe NormaliseResult)
+-&gt; MaybeT TcPluginM NormaliseResult
+forall (m :: * -&gt; *) a. m (Maybe a) -&gt; MaybeT m a
+</span><span class="hs-identifier hs-var">MaybeT</span></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">Maybe NormaliseResult -&gt; TcPluginM (Maybe NormaliseResult)
+forall (m :: * -&gt; *) a. Monad m =&gt; a -&gt; m a
+</span><span class="hs-identifier hs-var">return</span></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">ExtraOp -&gt; ExtraOp -&gt; Maybe NormaliseResult
+</span><a href="GHC.TypeLits.Extra.Solver.Operations.html#mergeMod"><span class="hs-identifier hs-var">mergeMod</span></a></span><span> </span><span class="annot"><span class="annottext">ExtraOp
+</span><a href="#local-6989586621679112200"><span class="hs-identifier hs-var">x'</span></a></span><span> </span><span class="annot"><span class="annottext">ExtraOp
+</span><a href="#local-6989586621679112199"><span class="hs-identifier hs-var">y'</span></a></span><span class="hs-special">)</span><span class="hs-special">)</span><span class="hs-special">)</span><span>
+</span><span id="line-70"></span><span>                                           </span><span class="hs-special">(</span><span class="annot"><span class="annottext">ExtraDefs -&gt; Type -&gt; MaybeT TcPluginM NormaliseResult
+</span><a href="GHC.TypeLits.Extra.Solver.Unify.html#normaliseNat"><span class="hs-identifier hs-var">normaliseNat</span></a></span><span> </span><span class="annot"><span class="annottext">ExtraDefs
+</span><a href="#local-6989586621679112219"><span class="hs-identifier hs-var">defs</span></a></span><span> </span><span class="annot"><span class="annottext">Type
+</span><a href="#local-6989586621679112216"><span class="hs-identifier hs-var">x</span></a></span><span class="hs-special">)</span><span>
+</span><span id="line-71"></span><span>                                           </span><span class="hs-special">(</span><span class="annot"><span class="annottext">ExtraDefs -&gt; Type -&gt; MaybeT TcPluginM NormaliseResult
+</span><a href="GHC.TypeLits.Extra.Solver.Unify.html#normaliseNat"><span class="hs-identifier hs-var">normaliseNat</span></a></span><span> </span><span class="annot"><span class="annottext">ExtraDefs
+</span><a href="#local-6989586621679112219"><span class="hs-identifier hs-var">defs</span></a></span><span> </span><span class="annot"><span class="annottext">Type
+</span><a href="#local-6989586621679112215"><span class="hs-identifier hs-var">y</span></a></span><span class="hs-special">)</span><span>
+</span><span id="line-72"></span><span>  </span><span class="hs-glyph">|</span><span> </span><span class="annot"><span class="annottext">TyCon
+</span><a href="#local-6989586621679112217"><span class="hs-identifier hs-var">tc</span></a></span><span> </span><span class="annot"><span class="annottext">TyCon -&gt; TyCon -&gt; Bool
+forall a. Eq a =&gt; a -&gt; a -&gt; Bool
+</span><span class="hs-operator hs-var">==</span></span><span> </span><span class="annot"><span class="annottext">ExtraDefs -&gt; TyCon
+</span><a href="GHC.TypeLits.Extra.Solver.Operations.html#flogTyCon"><span class="hs-identifier hs-var hs-var">flogTyCon</span></a></span><span> </span><span class="annot"><span class="annottext">ExtraDefs
+</span><a href="#local-6989586621679112219"><span class="hs-identifier hs-var">defs</span></a></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">(ExtraOp -&gt; ExtraOp -&gt; MaybeT TcPluginM NormaliseResult)
+-&gt; MaybeT TcPluginM NormaliseResult
+-&gt; MaybeT TcPluginM NormaliseResult
+-&gt; MaybeT TcPluginM NormaliseResult
+</span><a href="GHC.TypeLits.Extra.Solver.Unify.html#mergeNormResWith"><span class="hs-identifier hs-var">mergeNormResWith</span></a></span><span> </span><span class="hs-special">(</span><span class="hs-glyph">\</span><span id="local-6989586621679112196"><span class="annot"><span class="annottext">ExtraOp
+</span><a href="#local-6989586621679112196"><span class="hs-identifier hs-var">x'</span></a></span></span><span> </span><span id="local-6989586621679112195"><span class="annot"><span class="annottext">ExtraOp
+</span><a href="#local-6989586621679112195"><span class="hs-identifier hs-var">y'</span></a></span></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="annottext">TcPluginM (Maybe NormaliseResult)
+-&gt; MaybeT TcPluginM NormaliseResult
+forall (m :: * -&gt; *) a. m (Maybe a) -&gt; MaybeT m a
+</span><span class="hs-identifier hs-var">MaybeT</span></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">Maybe NormaliseResult -&gt; TcPluginM (Maybe NormaliseResult)
+forall (m :: * -&gt; *) a. Monad m =&gt; a -&gt; m a
+</span><span class="hs-identifier hs-var">return</span></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">ExtraOp -&gt; ExtraOp -&gt; Maybe NormaliseResult
+</span><a href="GHC.TypeLits.Extra.Solver.Operations.html#mergeFLog"><span class="hs-identifier hs-var">mergeFLog</span></a></span><span> </span><span class="annot"><span class="annottext">ExtraOp
+</span><a href="#local-6989586621679112196"><span class="hs-identifier hs-var">x'</span></a></span><span> </span><span class="annot"><span class="annottext">ExtraOp
+</span><a href="#local-6989586621679112195"><span class="hs-identifier hs-var">y'</span></a></span><span class="hs-special">)</span><span class="hs-special">)</span><span class="hs-special">)</span><span>
+</span><span id="line-73"></span><span>                                           </span><span class="hs-special">(</span><span class="annot"><span class="annottext">ExtraDefs -&gt; Type -&gt; MaybeT TcPluginM NormaliseResult
+</span><a href="GHC.TypeLits.Extra.Solver.Unify.html#normaliseNat"><span class="hs-identifier hs-var">normaliseNat</span></a></span><span> </span><span class="annot"><span class="annottext">ExtraDefs
+</span><a href="#local-6989586621679112219"><span class="hs-identifier hs-var">defs</span></a></span><span> </span><span class="annot"><span class="annottext">Type
+</span><a href="#local-6989586621679112216"><span class="hs-identifier hs-var">x</span></a></span><span class="hs-special">)</span><span>
+</span><span id="line-74"></span><span>                                           </span><span class="hs-special">(</span><span class="annot"><span class="annottext">ExtraDefs -&gt; Type -&gt; MaybeT TcPluginM NormaliseResult
+</span><a href="GHC.TypeLits.Extra.Solver.Unify.html#normaliseNat"><span class="hs-identifier hs-var">normaliseNat</span></a></span><span> </span><span class="annot"><span class="annottext">ExtraDefs
+</span><a href="#local-6989586621679112219"><span class="hs-identifier hs-var">defs</span></a></span><span> </span><span class="annot"><span class="annottext">Type
+</span><a href="#local-6989586621679112215"><span class="hs-identifier hs-var">y</span></a></span><span class="hs-special">)</span><span>
+</span><span id="line-75"></span><span>  </span><span class="hs-glyph">|</span><span> </span><span class="annot"><span class="annottext">TyCon
+</span><a href="#local-6989586621679112217"><span class="hs-identifier hs-var">tc</span></a></span><span> </span><span class="annot"><span class="annottext">TyCon -&gt; TyCon -&gt; Bool
+forall a. Eq a =&gt; a -&gt; a -&gt; Bool
+</span><span class="hs-operator hs-var">==</span></span><span> </span><span class="annot"><span class="annottext">ExtraDefs -&gt; TyCon
+</span><a href="GHC.TypeLits.Extra.Solver.Operations.html#clogTyCon"><span class="hs-identifier hs-var hs-var">clogTyCon</span></a></span><span> </span><span class="annot"><span class="annottext">ExtraDefs
+</span><a href="#local-6989586621679112219"><span class="hs-identifier hs-var">defs</span></a></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">(ExtraOp -&gt; ExtraOp -&gt; MaybeT TcPluginM NormaliseResult)
+-&gt; MaybeT TcPluginM NormaliseResult
+-&gt; MaybeT TcPluginM NormaliseResult
+-&gt; MaybeT TcPluginM NormaliseResult
+</span><a href="GHC.TypeLits.Extra.Solver.Unify.html#mergeNormResWith"><span class="hs-identifier hs-var">mergeNormResWith</span></a></span><span> </span><span class="hs-special">(</span><span class="hs-glyph">\</span><span id="local-6989586621679112192"><span class="annot"><span class="annottext">ExtraOp
+</span><a href="#local-6989586621679112192"><span class="hs-identifier hs-var">x'</span></a></span></span><span> </span><span id="local-6989586621679112191"><span class="annot"><span class="annottext">ExtraOp
+</span><a href="#local-6989586621679112191"><span class="hs-identifier hs-var">y'</span></a></span></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="annottext">TcPluginM (Maybe NormaliseResult)
+-&gt; MaybeT TcPluginM NormaliseResult
+forall (m :: * -&gt; *) a. m (Maybe a) -&gt; MaybeT m a
+</span><span class="hs-identifier hs-var">MaybeT</span></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">Maybe NormaliseResult -&gt; TcPluginM (Maybe NormaliseResult)
+forall (m :: * -&gt; *) a. Monad m =&gt; a -&gt; m a
+</span><span class="hs-identifier hs-var">return</span></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">ExtraOp -&gt; ExtraOp -&gt; Maybe NormaliseResult
+</span><a href="GHC.TypeLits.Extra.Solver.Operations.html#mergeCLog"><span class="hs-identifier hs-var">mergeCLog</span></a></span><span> </span><span class="annot"><span class="annottext">ExtraOp
+</span><a href="#local-6989586621679112192"><span class="hs-identifier hs-var">x'</span></a></span><span> </span><span class="annot"><span class="annottext">ExtraOp
+</span><a href="#local-6989586621679112191"><span class="hs-identifier hs-var">y'</span></a></span><span class="hs-special">)</span><span class="hs-special">)</span><span class="hs-special">)</span><span>
+</span><span id="line-76"></span><span>                                           </span><span class="hs-special">(</span><span class="annot"><span class="annottext">ExtraDefs -&gt; Type -&gt; MaybeT TcPluginM NormaliseResult
+</span><a href="GHC.TypeLits.Extra.Solver.Unify.html#normaliseNat"><span class="hs-identifier hs-var">normaliseNat</span></a></span><span> </span><span class="annot"><span class="annottext">ExtraDefs
+</span><a href="#local-6989586621679112219"><span class="hs-identifier hs-var">defs</span></a></span><span> </span><span class="annot"><span class="annottext">Type
+</span><a href="#local-6989586621679112216"><span class="hs-identifier hs-var">x</span></a></span><span class="hs-special">)</span><span>
+</span><span id="line-77"></span><span>                                           </span><span class="hs-special">(</span><span class="annot"><span class="annottext">ExtraDefs -&gt; Type -&gt; MaybeT TcPluginM NormaliseResult
+</span><a href="GHC.TypeLits.Extra.Solver.Unify.html#normaliseNat"><span class="hs-identifier hs-var">normaliseNat</span></a></span><span> </span><span class="annot"><span class="annottext">ExtraDefs
+</span><a href="#local-6989586621679112219"><span class="hs-identifier hs-var">defs</span></a></span><span> </span><span class="annot"><span class="annottext">Type
+</span><a href="#local-6989586621679112215"><span class="hs-identifier hs-var">y</span></a></span><span class="hs-special">)</span><span>
+</span><span id="line-78"></span><span>  </span><span class="hs-glyph">|</span><span> </span><span class="annot"><span class="annottext">TyCon
+</span><a href="#local-6989586621679112217"><span class="hs-identifier hs-var">tc</span></a></span><span> </span><span class="annot"><span class="annottext">TyCon -&gt; TyCon -&gt; Bool
+forall a. Eq a =&gt; a -&gt; a -&gt; Bool
+</span><span class="hs-operator hs-var">==</span></span><span> </span><span class="annot"><span class="annottext">ExtraDefs -&gt; TyCon
+</span><a href="GHC.TypeLits.Extra.Solver.Operations.html#logTyCon"><span class="hs-identifier hs-var hs-var">logTyCon</span></a></span><span> </span><span class="annot"><span class="annottext">ExtraDefs
+</span><a href="#local-6989586621679112219"><span class="hs-identifier hs-var">defs</span></a></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">(ExtraOp -&gt; ExtraOp -&gt; MaybeT TcPluginM NormaliseResult)
+-&gt; MaybeT TcPluginM NormaliseResult
+-&gt; MaybeT TcPluginM NormaliseResult
+-&gt; MaybeT TcPluginM NormaliseResult
+</span><a href="GHC.TypeLits.Extra.Solver.Unify.html#mergeNormResWith"><span class="hs-identifier hs-var">mergeNormResWith</span></a></span><span> </span><span class="hs-special">(</span><span class="hs-glyph">\</span><span id="local-6989586621679112188"><span class="annot"><span class="annottext">ExtraOp
+</span><a href="#local-6989586621679112188"><span class="hs-identifier hs-var">x'</span></a></span></span><span> </span><span id="local-6989586621679112187"><span class="annot"><span class="annottext">ExtraOp
+</span><a href="#local-6989586621679112187"><span class="hs-identifier hs-var">y'</span></a></span></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="annottext">TcPluginM (Maybe NormaliseResult)
+-&gt; MaybeT TcPluginM NormaliseResult
+forall (m :: * -&gt; *) a. m (Maybe a) -&gt; MaybeT m a
+</span><span class="hs-identifier hs-var">MaybeT</span></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">Maybe NormaliseResult -&gt; TcPluginM (Maybe NormaliseResult)
+forall (m :: * -&gt; *) a. Monad m =&gt; a -&gt; m a
+</span><span class="hs-identifier hs-var">return</span></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">ExtraOp -&gt; ExtraOp -&gt; Maybe NormaliseResult
+</span><a href="GHC.TypeLits.Extra.Solver.Operations.html#mergeLog"><span class="hs-identifier hs-var">mergeLog</span></a></span><span> </span><span class="annot"><span class="annottext">ExtraOp
+</span><a href="#local-6989586621679112188"><span class="hs-identifier hs-var">x'</span></a></span><span> </span><span class="annot"><span class="annottext">ExtraOp
+</span><a href="#local-6989586621679112187"><span class="hs-identifier hs-var">y'</span></a></span><span class="hs-special">)</span><span class="hs-special">)</span><span class="hs-special">)</span><span>
+</span><span id="line-79"></span><span>                                           </span><span class="hs-special">(</span><span class="annot"><span class="annottext">ExtraDefs -&gt; Type -&gt; MaybeT TcPluginM NormaliseResult
+</span><a href="GHC.TypeLits.Extra.Solver.Unify.html#normaliseNat"><span class="hs-identifier hs-var">normaliseNat</span></a></span><span> </span><span class="annot"><span class="annottext">ExtraDefs
+</span><a href="#local-6989586621679112219"><span class="hs-identifier hs-var">defs</span></a></span><span> </span><span class="annot"><span class="annottext">Type
+</span><a href="#local-6989586621679112216"><span class="hs-identifier hs-var">x</span></a></span><span class="hs-special">)</span><span>
+</span><span id="line-80"></span><span>                                           </span><span class="hs-special">(</span><span class="annot"><span class="annottext">ExtraDefs -&gt; Type -&gt; MaybeT TcPluginM NormaliseResult
+</span><a href="GHC.TypeLits.Extra.Solver.Unify.html#normaliseNat"><span class="hs-identifier hs-var">normaliseNat</span></a></span><span> </span><span class="annot"><span class="annottext">ExtraDefs
+</span><a href="#local-6989586621679112219"><span class="hs-identifier hs-var">defs</span></a></span><span> </span><span class="annot"><span class="annottext">Type
+</span><a href="#local-6989586621679112215"><span class="hs-identifier hs-var">y</span></a></span><span class="hs-special">)</span><span>
+</span><span id="line-81"></span><span>  </span><span class="hs-glyph">|</span><span> </span><span class="annot"><span class="annottext">TyCon
+</span><a href="#local-6989586621679112217"><span class="hs-identifier hs-var">tc</span></a></span><span> </span><span class="annot"><span class="annottext">TyCon -&gt; TyCon -&gt; Bool
+forall a. Eq a =&gt; a -&gt; a -&gt; Bool
+</span><span class="hs-operator hs-var">==</span></span><span> </span><span class="annot"><span class="annottext">ExtraDefs -&gt; TyCon
+</span><a href="GHC.TypeLits.Extra.Solver.Operations.html#gcdTyCon"><span class="hs-identifier hs-var hs-var">gcdTyCon</span></a></span><span> </span><span class="annot"><span class="annottext">ExtraDefs
+</span><a href="#local-6989586621679112219"><span class="hs-identifier hs-var">defs</span></a></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">(ExtraOp -&gt; ExtraOp -&gt; MaybeT TcPluginM NormaliseResult)
+-&gt; MaybeT TcPluginM NormaliseResult
+-&gt; MaybeT TcPluginM NormaliseResult
+-&gt; MaybeT TcPluginM NormaliseResult
+</span><a href="GHC.TypeLits.Extra.Solver.Unify.html#mergeNormResWith"><span class="hs-identifier hs-var">mergeNormResWith</span></a></span><span> </span><span class="hs-special">(</span><span class="hs-glyph">\</span><span id="local-6989586621679112184"><span class="annot"><span class="annottext">ExtraOp
+</span><a href="#local-6989586621679112184"><span class="hs-identifier hs-var">x'</span></a></span></span><span> </span><span id="local-6989586621679112183"><span class="annot"><span class="annottext">ExtraOp
+</span><a href="#local-6989586621679112183"><span class="hs-identifier hs-var">y'</span></a></span></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="annottext">NormaliseResult -&gt; MaybeT TcPluginM NormaliseResult
+forall (m :: * -&gt; *) a. Monad m =&gt; a -&gt; m a
+</span><span class="hs-identifier hs-var">return</span></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">ExtraOp -&gt; ExtraOp -&gt; NormaliseResult
+</span><a href="GHC.TypeLits.Extra.Solver.Operations.html#mergeGCD"><span class="hs-identifier hs-var">mergeGCD</span></a></span><span> </span><span class="annot"><span class="annottext">ExtraOp
+</span><a href="#local-6989586621679112184"><span class="hs-identifier hs-var">x'</span></a></span><span> </span><span class="annot"><span class="annottext">ExtraOp
+</span><a href="#local-6989586621679112183"><span class="hs-identifier hs-var">y'</span></a></span><span class="hs-special">)</span><span class="hs-special">)</span><span>
+</span><span id="line-82"></span><span>                                           </span><span class="hs-special">(</span><span class="annot"><span class="annottext">ExtraDefs -&gt; Type -&gt; MaybeT TcPluginM NormaliseResult
+</span><a href="GHC.TypeLits.Extra.Solver.Unify.html#normaliseNat"><span class="hs-identifier hs-var">normaliseNat</span></a></span><span> </span><span class="annot"><span class="annottext">ExtraDefs
+</span><a href="#local-6989586621679112219"><span class="hs-identifier hs-var">defs</span></a></span><span> </span><span class="annot"><span class="annottext">Type
+</span><a href="#local-6989586621679112216"><span class="hs-identifier hs-var">x</span></a></span><span class="hs-special">)</span><span>
+</span><span id="line-83"></span><span>                                           </span><span class="hs-special">(</span><span class="annot"><span class="annottext">ExtraDefs -&gt; Type -&gt; MaybeT TcPluginM NormaliseResult
+</span><a href="GHC.TypeLits.Extra.Solver.Unify.html#normaliseNat"><span class="hs-identifier hs-var">normaliseNat</span></a></span><span> </span><span class="annot"><span class="annottext">ExtraDefs
+</span><a href="#local-6989586621679112219"><span class="hs-identifier hs-var">defs</span></a></span><span> </span><span class="annot"><span class="annottext">Type
+</span><a href="#local-6989586621679112215"><span class="hs-identifier hs-var">y</span></a></span><span class="hs-special">)</span><span>
+</span><span id="line-84"></span><span>  </span><span class="hs-glyph">|</span><span> </span><span class="annot"><span class="annottext">TyCon
+</span><a href="#local-6989586621679112217"><span class="hs-identifier hs-var">tc</span></a></span><span> </span><span class="annot"><span class="annottext">TyCon -&gt; TyCon -&gt; Bool
+forall a. Eq a =&gt; a -&gt; a -&gt; Bool
+</span><span class="hs-operator hs-var">==</span></span><span> </span><span class="annot"><span class="annottext">ExtraDefs -&gt; TyCon
+</span><a href="GHC.TypeLits.Extra.Solver.Operations.html#lcmTyCon"><span class="hs-identifier hs-var hs-var">lcmTyCon</span></a></span><span> </span><span class="annot"><span class="annottext">ExtraDefs
+</span><a href="#local-6989586621679112219"><span class="hs-identifier hs-var">defs</span></a></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">(ExtraOp -&gt; ExtraOp -&gt; MaybeT TcPluginM NormaliseResult)
+-&gt; MaybeT TcPluginM NormaliseResult
+-&gt; MaybeT TcPluginM NormaliseResult
+-&gt; MaybeT TcPluginM NormaliseResult
+</span><a href="GHC.TypeLits.Extra.Solver.Unify.html#mergeNormResWith"><span class="hs-identifier hs-var">mergeNormResWith</span></a></span><span> </span><span class="hs-special">(</span><span class="hs-glyph">\</span><span id="local-6989586621679112180"><span class="annot"><span class="annottext">ExtraOp
+</span><a href="#local-6989586621679112180"><span class="hs-identifier hs-var">x'</span></a></span></span><span> </span><span id="local-6989586621679112179"><span class="annot"><span class="annottext">ExtraOp
+</span><a href="#local-6989586621679112179"><span class="hs-identifier hs-var">y'</span></a></span></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="annottext">NormaliseResult -&gt; MaybeT TcPluginM NormaliseResult
+forall (m :: * -&gt; *) a. Monad m =&gt; a -&gt; m a
+</span><span class="hs-identifier hs-var">return</span></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">ExtraOp -&gt; ExtraOp -&gt; NormaliseResult
+</span><a href="GHC.TypeLits.Extra.Solver.Operations.html#mergeLCM"><span class="hs-identifier hs-var">mergeLCM</span></a></span><span> </span><span class="annot"><span class="annottext">ExtraOp
+</span><a href="#local-6989586621679112180"><span class="hs-identifier hs-var">x'</span></a></span><span> </span><span class="annot"><span class="annottext">ExtraOp
+</span><a href="#local-6989586621679112179"><span class="hs-identifier hs-var">y'</span></a></span><span class="hs-special">)</span><span class="hs-special">)</span><span>
+</span><span id="line-85"></span><span>                                           </span><span class="hs-special">(</span><span class="annot"><span class="annottext">ExtraDefs -&gt; Type -&gt; MaybeT TcPluginM NormaliseResult
+</span><a href="GHC.TypeLits.Extra.Solver.Unify.html#normaliseNat"><span class="hs-identifier hs-var">normaliseNat</span></a></span><span> </span><span class="annot"><span class="annottext">ExtraDefs
+</span><a href="#local-6989586621679112219"><span class="hs-identifier hs-var">defs</span></a></span><span> </span><span class="annot"><span class="annottext">Type
+</span><a href="#local-6989586621679112216"><span class="hs-identifier hs-var">x</span></a></span><span class="hs-special">)</span><span>
+</span><span id="line-86"></span><span>                                           </span><span class="hs-special">(</span><span class="annot"><span class="annottext">ExtraDefs -&gt; Type -&gt; MaybeT TcPluginM NormaliseResult
+</span><a href="GHC.TypeLits.Extra.Solver.Unify.html#normaliseNat"><span class="hs-identifier hs-var">normaliseNat</span></a></span><span> </span><span class="annot"><span class="annottext">ExtraDefs
+</span><a href="#local-6989586621679112219"><span class="hs-identifier hs-var">defs</span></a></span><span> </span><span class="annot"><span class="annottext">Type
+</span><a href="#local-6989586621679112215"><span class="hs-identifier hs-var">y</span></a></span><span class="hs-special">)</span><span>
+</span><span id="line-87"></span><span>  </span><span class="hs-glyph">|</span><span> </span><span class="annot"><span class="annottext">TyCon
+</span><a href="#local-6989586621679112217"><span class="hs-identifier hs-var">tc</span></a></span><span> </span><span class="annot"><span class="annottext">TyCon -&gt; TyCon -&gt; Bool
+forall a. Eq a =&gt; a -&gt; a -&gt; Bool
+</span><span class="hs-operator hs-var">==</span></span><span> </span><span class="annot"><span class="annottext">TyCon
+</span><span class="hs-identifier hs-var">typeNatExpTyCon</span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">(ExtraOp -&gt; ExtraOp -&gt; MaybeT TcPluginM NormaliseResult)
+-&gt; MaybeT TcPluginM NormaliseResult
+-&gt; MaybeT TcPluginM NormaliseResult
+-&gt; MaybeT TcPluginM NormaliseResult
+</span><a href="GHC.TypeLits.Extra.Solver.Unify.html#mergeNormResWith"><span class="hs-identifier hs-var">mergeNormResWith</span></a></span><span> </span><span class="hs-special">(</span><span class="hs-glyph">\</span><span id="local-6989586621679112177"><span class="annot"><span class="annottext">ExtraOp
+</span><a href="#local-6989586621679112177"><span class="hs-identifier hs-var">x'</span></a></span></span><span> </span><span id="local-6989586621679112176"><span class="annot"><span class="annottext">ExtraOp
+</span><a href="#local-6989586621679112176"><span class="hs-identifier hs-var">y'</span></a></span></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="annottext">NormaliseResult -&gt; MaybeT TcPluginM NormaliseResult
+forall (m :: * -&gt; *) a. Monad m =&gt; a -&gt; m a
+</span><span class="hs-identifier hs-var">return</span></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">ExtraOp -&gt; ExtraOp -&gt; NormaliseResult
+</span><a href="GHC.TypeLits.Extra.Solver.Operations.html#mergeExp"><span class="hs-identifier hs-var">mergeExp</span></a></span><span> </span><span class="annot"><span class="annottext">ExtraOp
+</span><a href="#local-6989586621679112177"><span class="hs-identifier hs-var">x'</span></a></span><span> </span><span class="annot"><span class="annottext">ExtraOp
+</span><a href="#local-6989586621679112176"><span class="hs-identifier hs-var">y'</span></a></span><span class="hs-special">)</span><span class="hs-special">)</span><span>
+</span><span id="line-88"></span><span>                                             </span><span class="hs-special">(</span><span class="annot"><span class="annottext">ExtraDefs -&gt; Type -&gt; MaybeT TcPluginM NormaliseResult
+</span><a href="GHC.TypeLits.Extra.Solver.Unify.html#normaliseNat"><span class="hs-identifier hs-var">normaliseNat</span></a></span><span> </span><span class="annot"><span class="annottext">ExtraDefs
+</span><a href="#local-6989586621679112219"><span class="hs-identifier hs-var">defs</span></a></span><span> </span><span class="annot"><span class="annottext">Type
+</span><a href="#local-6989586621679112216"><span class="hs-identifier hs-var">x</span></a></span><span class="hs-special">)</span><span>
+</span><span id="line-89"></span><span>                                             </span><span class="hs-special">(</span><span class="annot"><span class="annottext">ExtraDefs -&gt; Type -&gt; MaybeT TcPluginM NormaliseResult
+</span><a href="GHC.TypeLits.Extra.Solver.Unify.html#normaliseNat"><span class="hs-identifier hs-var">normaliseNat</span></a></span><span> </span><span class="annot"><span class="annottext">ExtraDefs
+</span><a href="#local-6989586621679112219"><span class="hs-identifier hs-var">defs</span></a></span><span> </span><span class="annot"><span class="annottext">Type
+</span><a href="#local-6989586621679112215"><span class="hs-identifier hs-var">y</span></a></span><span class="hs-special">)</span><span>
+</span><span id="line-90"></span><span>
+</span><span id="line-91"></span><span class="annot"><a href="GHC.TypeLits.Extra.Solver.Unify.html#normaliseNat"><span class="hs-identifier hs-var">normaliseNat</span></a></span><span> </span><span id="local-6989586621679112174"><span class="annot"><span class="annottext">ExtraDefs
+</span><a href="#local-6989586621679112174"><span class="hs-identifier hs-var">defs</span></a></span></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="hs-identifier hs-type">TyConApp</span></span><span> </span><span id="local-6989586621679112173"><span class="annot"><span class="annottext">TyCon
+</span><a href="#local-6989586621679112173"><span class="hs-identifier hs-var">tc</span></a></span></span><span> </span><span id="local-6989586621679112172"><span class="annot"><span class="annottext">[Type]
+</span><a href="#local-6989586621679112172"><span class="hs-identifier hs-var">tys</span></a></span></span><span class="hs-special">)</span><span> </span><span class="hs-glyph">=</span><span> </span><span class="hs-keyword">do</span><span>
+</span><span id="line-92"></span><span>  </span><span class="hs-keyword">let</span><span> </span><span id="local-6989586621679112171"><span class="annot"><span class="annottext">mergeExtraOp :: [(Maybe NormaliseResult, Type)] -&gt; [Type]
+</span><a href="#local-6989586621679112171"><span class="hs-identifier hs-var hs-var">mergeExtraOp</span></a></span></span><span> </span><span class="hs-special">[</span><span class="hs-special">]</span><span> </span><span class="hs-glyph">=</span><span> </span><span class="hs-special">[</span><span class="hs-special">]</span><span>
+</span><span id="line-93"></span><span>      </span><span class="annot"><a href="#local-6989586621679112171"><span class="hs-identifier hs-var">mergeExtraOp</span></a></span><span> </span><span class="hs-special">(</span><span class="hs-special">(</span><span class="annot"><span class="hs-identifier hs-type">Just</span></span><span> </span><span class="hs-special">(</span><span id="local-6989586621679112170"><span class="annot"><span class="annottext">ExtraOp
+</span><a href="#local-6989586621679112170"><span class="hs-identifier hs-var">op</span></a></span></span><span class="hs-special">,</span><span> </span><span class="annot"><span class="annottext">Normalised
+</span><a href="GHC.TypeLits.Extra.Solver.Operations.html#Normalised"><span class="hs-identifier hs-var">Normalised</span></a></span><span class="hs-special">)</span><span class="hs-special">,</span><span> </span><span class="annot"><span class="annottext">Type
+</span><span class="hs-identifier">_</span></span><span class="hs-special">)</span><span class="annot"><span class="hs-glyph hs-type">:</span></span><span id="local-6989586621679112168"><span class="annot"><span class="annottext">[(Maybe NormaliseResult, Type)]
+</span><a href="#local-6989586621679112168"><span class="hs-identifier hs-var">xs</span></a></span></span><span class="hs-special">)</span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">ExtraDefs -&gt; ExtraOp -&gt; Type
+</span><a href="GHC.TypeLits.Extra.Solver.Operations.html#reifyEOP"><span class="hs-identifier hs-var">reifyEOP</span></a></span><span> </span><span class="annot"><span class="annottext">ExtraDefs
+</span><a href="#local-6989586621679112174"><span class="hs-identifier hs-var">defs</span></a></span><span> </span><span class="annot"><span class="annottext">ExtraOp
+</span><a href="#local-6989586621679112170"><span class="hs-identifier hs-var">op</span></a></span><span class="annot"><span class="annottext">Type -&gt; [Type] -&gt; [Type]
+forall a. a -&gt; [a] -&gt; [a]
+</span><span class="hs-glyph hs-var">:</span></span><span class="annot"><span class="annottext">[(Maybe NormaliseResult, Type)] -&gt; [Type]
+</span><a href="#local-6989586621679112171"><span class="hs-identifier hs-var">mergeExtraOp</span></a></span><span> </span><span class="annot"><span class="annottext">[(Maybe NormaliseResult, Type)]
+</span><a href="#local-6989586621679112168"><span class="hs-identifier hs-var">xs</span></a></span><span>
+</span><span id="line-94"></span><span>      </span><span class="annot"><a href="#local-6989586621679112171"><span class="hs-identifier hs-var">mergeExtraOp</span></a></span><span> </span><span class="hs-special">(</span><span class="hs-special">(</span><span class="annot"><span class="annottext">Maybe NormaliseResult
+</span><span class="hs-identifier">_</span></span><span class="hs-special">,</span><span> </span><span id="local-6989586621679112166"><span class="annot"><span class="annottext">Type
+</span><a href="#local-6989586621679112166"><span class="hs-identifier hs-var">ty</span></a></span></span><span class="hs-special">)</span><span class="annot"><span class="hs-glyph hs-type">:</span></span><span id="local-6989586621679112165"><span class="annot"><span class="annottext">[(Maybe NormaliseResult, Type)]
+</span><a href="#local-6989586621679112165"><span class="hs-identifier hs-var">xs</span></a></span></span><span class="hs-special">)</span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">Type
+</span><a href="#local-6989586621679112166"><span class="hs-identifier hs-var">ty</span></a></span><span class="annot"><span class="annottext">Type -&gt; [Type] -&gt; [Type]
+forall a. a -&gt; [a] -&gt; [a]
+</span><span class="hs-glyph hs-var">:</span></span><span class="annot"><span class="annottext">[(Maybe NormaliseResult, Type)] -&gt; [Type]
+</span><a href="#local-6989586621679112171"><span class="hs-identifier hs-var">mergeExtraOp</span></a></span><span> </span><span class="annot"><span class="annottext">[(Maybe NormaliseResult, Type)]
+</span><a href="#local-6989586621679112165"><span class="hs-identifier hs-var">xs</span></a></span><span>
+</span><span id="line-95"></span><span>
+</span><span id="line-96"></span><span>  </span><span id="local-6989586621679112164"><span class="annot"><span class="annottext">[Maybe NormaliseResult]
+</span><a href="#local-6989586621679112164"><span class="hs-identifier hs-var">normResults</span></a></span></span><span> </span><span class="hs-glyph">&lt;-</span><span> </span><span class="annot"><span class="annottext">TcPluginM [Maybe NormaliseResult]
+-&gt; MaybeT TcPluginM [Maybe NormaliseResult]
+forall (t :: (* -&gt; *) -&gt; * -&gt; *) (m :: * -&gt; *) a.
+(MonadTrans t, Monad m) =&gt;
+m a -&gt; t m a
+</span><span class="hs-identifier hs-var">lift</span></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">[TcPluginM (Maybe NormaliseResult)]
+-&gt; TcPluginM [Maybe NormaliseResult]
+forall (t :: * -&gt; *) (m :: * -&gt; *) a.
+(Traversable t, Monad m) =&gt;
+t (m a) -&gt; m (t a)
+</span><span class="hs-identifier hs-var">sequence</span></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">MaybeT TcPluginM NormaliseResult
+-&gt; TcPluginM (Maybe NormaliseResult)
+forall (m :: * -&gt; *) a. MaybeT m a -&gt; m (Maybe a)
+</span><span class="hs-identifier hs-var hs-var">runMaybeT</span></span><span> </span><span class="annot"><span class="annottext">(MaybeT TcPluginM NormaliseResult
+ -&gt; TcPluginM (Maybe NormaliseResult))
+-&gt; (Type -&gt; MaybeT TcPluginM NormaliseResult)
+-&gt; Type
+-&gt; TcPluginM (Maybe NormaliseResult)
+forall b c a. (b -&gt; c) -&gt; (a -&gt; b) -&gt; a -&gt; c
+</span><span class="hs-operator hs-var">.</span></span><span> </span><span class="annot"><span class="annottext">ExtraDefs -&gt; Type -&gt; MaybeT TcPluginM NormaliseResult
+</span><a href="GHC.TypeLits.Extra.Solver.Unify.html#normaliseNat"><span class="hs-identifier hs-var">normaliseNat</span></a></span><span> </span><span class="annot"><span class="annottext">ExtraDefs
+</span><a href="#local-6989586621679112174"><span class="hs-identifier hs-var">defs</span></a></span><span> </span><span class="annot"><span class="annottext">(Type -&gt; TcPluginM (Maybe NormaliseResult))
+-&gt; [Type] -&gt; [TcPluginM (Maybe NormaliseResult)]
+forall (f :: * -&gt; *) a b. Functor f =&gt; (a -&gt; b) -&gt; f a -&gt; f b
+</span><span class="hs-operator hs-var">&lt;$&gt;</span></span><span> </span><span class="annot"><span class="annottext">[Type]
+</span><a href="#local-6989586621679112172"><span class="hs-identifier hs-var">tys</span></a></span><span class="hs-special">)</span><span class="hs-special">)</span><span>
+</span><span id="line-97"></span><span>  </span><span class="hs-keyword">let</span><span> </span><span id="local-6989586621679112159"><span class="annot"><span class="annottext">anyNormalised :: Normalised
+</span><a href="#local-6989586621679112159"><span class="hs-identifier hs-var hs-var">anyNormalised</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">(Normalised -&gt; Normalised -&gt; Normalised)
+-&gt; Normalised -&gt; [Normalised] -&gt; Normalised
+forall (t :: * -&gt; *) a b.
+Foldable t =&gt;
+(a -&gt; b -&gt; b) -&gt; b -&gt; t a -&gt; b
+</span><span class="hs-identifier hs-var">foldr</span></span><span> </span><span class="annot"><span class="annottext">Normalised -&gt; Normalised -&gt; Normalised
+</span><a href="GHC.TypeLits.Extra.Solver.Operations.html#mergeNormalised"><span class="hs-identifier hs-var">mergeNormalised</span></a></span><span> </span><span class="annot"><span class="annottext">Normalised
+</span><a href="GHC.TypeLits.Extra.Solver.Operations.html#Untouched"><span class="hs-identifier hs-var">Untouched</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">NormaliseResult -&gt; Normalised
+forall a b. (a, b) -&gt; b
+</span><span class="hs-identifier hs-var">snd</span></span><span> </span><span class="annot"><span class="annottext">(NormaliseResult -&gt; Normalised)
+-&gt; [NormaliseResult] -&gt; [Normalised]
+forall (f :: * -&gt; *) a b. Functor f =&gt; (a -&gt; b) -&gt; f a -&gt; f b
+</span><span class="hs-operator hs-var">&lt;$&gt;</span></span><span> </span><span class="annot"><span class="annottext">[Maybe NormaliseResult] -&gt; [NormaliseResult]
+forall a. [Maybe a] -&gt; [a]
+</span><span class="hs-identifier hs-var">catMaybes</span></span><span> </span><span class="annot"><span class="annottext">[Maybe NormaliseResult]
+</span><a href="#local-6989586621679112164"><span class="hs-identifier hs-var">normResults</span></a></span><span class="hs-special">)</span><span>
+</span><span id="line-98"></span><span>  </span><span class="hs-keyword">let</span><span> </span><span id="local-6989586621679112157"><span class="annot"><span class="annottext">tys' :: [Type]
+</span><a href="#local-6989586621679112157"><span class="hs-identifier hs-var hs-var">tys'</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">[(Maybe NormaliseResult, Type)] -&gt; [Type]
+</span><a href="#local-6989586621679112171"><span class="hs-identifier hs-var">mergeExtraOp</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">[Maybe NormaliseResult]
+-&gt; [Type] -&gt; [(Maybe NormaliseResult, Type)]
+forall a b. [a] -&gt; [b] -&gt; [(a, b)]
+</span><span class="hs-identifier hs-var">zip</span></span><span> </span><span class="annot"><span class="annottext">[Maybe NormaliseResult]
+</span><a href="#local-6989586621679112164"><span class="hs-identifier hs-var">normResults</span></a></span><span> </span><span class="annot"><span class="annottext">[Type]
+</span><a href="#local-6989586621679112172"><span class="hs-identifier hs-var">tys</span></a></span><span class="hs-special">)</span><span>
+</span><span id="line-99"></span><span>  </span><span class="annot"><span class="annottext">NormaliseResult -&gt; MaybeT TcPluginM NormaliseResult
+forall (f :: * -&gt; *) a. Applicative f =&gt; a -&gt; f a
+</span><span class="hs-identifier hs-var">pure</span></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">CType -&gt; ExtraOp
+</span><a href="GHC.TypeLits.Extra.Solver.Operations.html#C"><span class="hs-identifier hs-var">C</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">Type -&gt; CType
+</span><span class="hs-identifier hs-var">CType</span></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">TyCon -&gt; [Type] -&gt; Type
+</span><span class="hs-identifier hs-var">TyConApp</span></span><span> </span><span class="annot"><span class="annottext">TyCon
+</span><a href="#local-6989586621679112173"><span class="hs-identifier hs-var">tc</span></a></span><span> </span><span class="annot"><span class="annottext">[Type]
+</span><a href="#local-6989586621679112157"><span class="hs-identifier hs-var">tys'</span></a></span><span class="hs-special">)</span><span class="hs-special">)</span><span class="hs-special">,</span><span> </span><span class="annot"><span class="annottext">Normalised
+</span><a href="#local-6989586621679112159"><span class="hs-identifier hs-var">anyNormalised</span></a></span><span class="hs-special">)</span><span>
+</span><span id="line-100"></span><span>
+</span><span id="line-101"></span><span class="annot"><a href="GHC.TypeLits.Extra.Solver.Unify.html#normaliseNat"><span class="hs-identifier hs-var">normaliseNat</span></a></span><span> </span><span class="annot"><span class="annottext">ExtraDefs
+</span><span class="hs-identifier">_</span></span><span> </span><span id="local-6989586621679112154"><span class="annot"><span class="annottext">Type
+</span><a href="#local-6989586621679112154"><span class="hs-identifier hs-var">t</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">NormaliseResult -&gt; MaybeT TcPluginM NormaliseResult
+forall (m :: * -&gt; *) a. Monad m =&gt; a -&gt; m a
+</span><span class="hs-identifier hs-var">return</span></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">CType -&gt; ExtraOp
+</span><a href="GHC.TypeLits.Extra.Solver.Operations.html#C"><span class="hs-identifier hs-var">C</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">Type -&gt; CType
+</span><span class="hs-identifier hs-var">CType</span></span><span> </span><span class="annot"><span class="annottext">Type
+</span><a href="#local-6989586621679112154"><span class="hs-identifier hs-var">t</span></a></span><span class="hs-special">)</span><span class="hs-special">,</span><span> </span><span class="annot"><span class="annottext">Normalised
+</span><a href="GHC.TypeLits.Extra.Solver.Operations.html#Untouched"><span class="hs-identifier hs-var">Untouched</span></a></span><span class="hs-special">)</span><span>
+</span><span id="line-102"></span><span>
+</span><span id="line-103"></span><span class="hs-comment">-- | Result of comparing two 'SOP' terms, returning a potential substitution</span><span>
+</span><span id="line-104"></span><span class="hs-comment">-- list under which the two terms are equal.</span><span>
+</span><span id="line-105"></span><span class="hs-keyword">data</span><span> </span><span id="UnifyResult"><span class="annot"><a href="GHC.TypeLits.Extra.Solver.Unify.html#UnifyResult"><span class="hs-identifier hs-var">UnifyResult</span></a></span></span><span>
+</span><span id="line-106"></span><span>  </span><span class="hs-glyph">=</span><span> </span><span id="Win"><span class="annot"><a href="GHC.TypeLits.Extra.Solver.Unify.html#Win"><span class="hs-identifier hs-var">Win</span></a></span></span><span>  </span><span class="hs-comment">-- ^ Two terms are equal</span><span>
+</span><span id="line-107"></span><span>  </span><span class="hs-glyph">|</span><span> </span><span id="Lose"><span class="annot"><a href="GHC.TypeLits.Extra.Solver.Unify.html#Lose"><span class="hs-identifier hs-var">Lose</span></a></span></span><span> </span><span class="hs-comment">-- ^ Two terms are /not/ equal</span><span>
+</span><span id="line-108"></span><span>  </span><span class="hs-glyph">|</span><span> </span><span id="Draw"><span class="annot"><a href="GHC.TypeLits.Extra.Solver.Unify.html#Draw"><span class="hs-identifier hs-var">Draw</span></a></span></span><span> </span><span class="hs-comment">-- ^ We don't know if the two terms are equal</span><span>
+</span><span id="line-109"></span><span>
+</span><span id="line-110"></span><span class="hs-keyword">instance</span><span> </span><span id="local-6989586621679112148"><span class="annot"><span class="hs-identifier hs-type">Outputable</span></span><span> </span><span class="annot"><a href="GHC.TypeLits.Extra.Solver.Unify.html#UnifyResult"><span class="hs-identifier hs-type">UnifyResult</span></a></span></span><span> </span><span class="hs-keyword">where</span><span>
+</span><span id="line-111"></span><span>  </span><span id="local-6989586621679112146"><span class="annot"><span class="annottext">ppr :: UnifyResult -&gt; SDoc
+</span><span class="hs-identifier hs-var hs-var hs-var hs-var">ppr</span></span></span><span> </span><span class="annot"><span class="annottext">UnifyResult
+</span><a href="GHC.TypeLits.Extra.Solver.Unify.html#Win"><span class="hs-identifier hs-var">Win</span></a></span><span>  </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">String -&gt; SDoc
+</span><span class="hs-identifier hs-var">text</span></span><span> </span><span class="annot"><span class="annottext">String
+</span><span class="hs-string">&quot;Win&quot;</span></span><span>
+</span><span id="line-112"></span><span>  </span><span class="annot"><span class="hs-identifier hs-var">ppr</span></span><span> </span><span class="annot"><span class="annottext">UnifyResult
+</span><a href="GHC.TypeLits.Extra.Solver.Unify.html#Lose"><span class="hs-identifier hs-var">Lose</span></a></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">String -&gt; SDoc
+</span><span class="hs-identifier hs-var">text</span></span><span> </span><span class="annot"><span class="annottext">String
+</span><span class="hs-string">&quot;Lose&quot;</span></span><span>
+</span><span id="line-113"></span><span>  </span><span class="annot"><span class="hs-identifier hs-var">ppr</span></span><span> </span><span class="annot"><span class="annottext">UnifyResult
+</span><a href="GHC.TypeLits.Extra.Solver.Unify.html#Draw"><span class="hs-identifier hs-var">Draw</span></a></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">String -&gt; SDoc
+</span><span class="hs-identifier hs-var">text</span></span><span> </span><span class="annot"><span class="annottext">String
+</span><span class="hs-string">&quot;Draw&quot;</span></span><span>
+</span><span id="line-114"></span><span>
+</span><span id="line-115"></span><span class="annot"><a href="GHC.TypeLits.Extra.Solver.Unify.html#unifyExtra"><span class="hs-identifier hs-type">unifyExtra</span></a></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="annot"><span class="hs-identifier hs-type">Ct</span></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><a href="GHC.TypeLits.Extra.Solver.Operations.html#ExtraOp"><span class="hs-identifier hs-type">ExtraOp</span></a></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><a href="GHC.TypeLits.Extra.Solver.Operations.html#ExtraOp"><span class="hs-identifier hs-type">ExtraOp</span></a></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="hs-identifier hs-type">TcPluginM</span></span><span> </span><span class="annot"><a href="GHC.TypeLits.Extra.Solver.Unify.html#UnifyResult"><span class="hs-identifier hs-type">UnifyResult</span></a></span><span>
+</span><span id="line-116"></span><span id="unifyExtra"><span class="annot"><span class="annottext">unifyExtra :: Ct -&gt; ExtraOp -&gt; ExtraOp -&gt; TcPluginM UnifyResult
+</span><a href="GHC.TypeLits.Extra.Solver.Unify.html#unifyExtra"><span class="hs-identifier hs-var hs-var">unifyExtra</span></a></span></span><span> </span><span id="local-6989586621679112144"><span class="annot"><span class="annottext">Ct
+</span><a href="#local-6989586621679112144"><span class="hs-identifier hs-var">ct</span></a></span></span><span> </span><span id="local-6989586621679112143"><span class="annot"><span class="annottext">ExtraOp
+</span><a href="#local-6989586621679112143"><span class="hs-identifier hs-var">u</span></a></span></span><span> </span><span id="local-6989586621679112142"><span class="annot"><span class="annottext">ExtraOp
+</span><a href="#local-6989586621679112142"><span class="hs-identifier hs-var">v</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="hs-keyword">do</span><span>
+</span><span id="line-117"></span><span>  </span><span class="annot"><span class="annottext">String -&gt; SDoc -&gt; TcPluginM ()
+</span><span class="hs-identifier hs-var">tcPluginTrace</span></span><span> </span><span class="annot"><span class="annottext">String
+</span><span class="hs-string">&quot;unifyExtra&quot;</span></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">Ct -&gt; SDoc
+forall a. Outputable a =&gt; a -&gt; SDoc
+</span><span class="hs-identifier hs-var">ppr</span></span><span> </span><span class="annot"><span class="annottext">Ct
+</span><a href="#local-6989586621679112144"><span class="hs-identifier hs-var">ct</span></a></span><span> </span><span class="annot"><span class="annottext">SDoc -&gt; SDoc -&gt; SDoc
+</span><span class="hs-operator hs-var">$$</span></span><span> </span><span class="annot"><span class="annottext">ExtraOp -&gt; SDoc
+forall a. Outputable a =&gt; a -&gt; SDoc
+</span><span class="hs-identifier hs-var">ppr</span></span><span> </span><span class="annot"><span class="annottext">ExtraOp
+</span><a href="#local-6989586621679112143"><span class="hs-identifier hs-var">u</span></a></span><span> </span><span class="annot"><span class="annottext">SDoc -&gt; SDoc -&gt; SDoc
+</span><span class="hs-operator hs-var">$$</span></span><span> </span><span class="annot"><span class="annottext">ExtraOp -&gt; SDoc
+forall a. Outputable a =&gt; a -&gt; SDoc
+</span><span class="hs-identifier hs-var">ppr</span></span><span> </span><span class="annot"><span class="annottext">ExtraOp
+</span><a href="#local-6989586621679112142"><span class="hs-identifier hs-var">v</span></a></span><span class="hs-special">)</span><span>
+</span><span id="line-118"></span><span>  </span><span class="annot"><span class="annottext">UnifyResult -&gt; TcPluginM UnifyResult
+forall (m :: * -&gt; *) a. Monad m =&gt; a -&gt; m a
+</span><span class="hs-identifier hs-var">return</span></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">ExtraOp -&gt; ExtraOp -&gt; UnifyResult
+</span><a href="GHC.TypeLits.Extra.Solver.Unify.html#unifyExtra%27"><span class="hs-identifier hs-var">unifyExtra'</span></a></span><span> </span><span class="annot"><span class="annottext">ExtraOp
+</span><a href="#local-6989586621679112143"><span class="hs-identifier hs-var">u</span></a></span><span> </span><span class="annot"><span class="annottext">ExtraOp
+</span><a href="#local-6989586621679112142"><span class="hs-identifier hs-var">v</span></a></span><span class="hs-special">)</span><span>
+</span><span id="line-119"></span><span>
+</span><span id="line-120"></span><span class="annot"><a href="GHC.TypeLits.Extra.Solver.Unify.html#unifyExtra%27"><span class="hs-identifier hs-type">unifyExtra'</span></a></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="annot"><a href="GHC.TypeLits.Extra.Solver.Operations.html#ExtraOp"><span class="hs-identifier hs-type">ExtraOp</span></a></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><a href="GHC.TypeLits.Extra.Solver.Operations.html#ExtraOp"><span class="hs-identifier hs-type">ExtraOp</span></a></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><a href="GHC.TypeLits.Extra.Solver.Unify.html#UnifyResult"><span class="hs-identifier hs-type">UnifyResult</span></a></span><span>
+</span><span id="line-121"></span><span id="unifyExtra%27"><span class="annot"><span class="annottext">unifyExtra' :: ExtraOp -&gt; ExtraOp -&gt; UnifyResult
+</span><a href="GHC.TypeLits.Extra.Solver.Unify.html#unifyExtra%27"><span class="hs-identifier hs-var hs-var">unifyExtra'</span></a></span></span><span> </span><span id="local-6989586621679112140"><span class="annot"><span class="annottext">ExtraOp
+</span><a href="#local-6989586621679112140"><span class="hs-identifier hs-var">u</span></a></span></span><span> </span><span id="local-6989586621679112139"><span class="annot"><span class="annottext">ExtraOp
+</span><a href="#local-6989586621679112139"><span class="hs-identifier hs-var">v</span></a></span></span><span>
+</span><span id="line-122"></span><span>  </span><span class="hs-glyph">|</span><span> </span><span class="annot"><span class="annottext">ExtraOp -&gt; ExtraOp -&gt; Bool
+</span><a href="GHC.TypeLits.Extra.Solver.Unify.html#eqFV"><span class="hs-identifier hs-var">eqFV</span></a></span><span> </span><span class="annot"><span class="annottext">ExtraOp
+</span><a href="#local-6989586621679112140"><span class="hs-identifier hs-var">u</span></a></span><span> </span><span class="annot"><span class="annottext">ExtraOp
+</span><a href="#local-6989586621679112139"><span class="hs-identifier hs-var">v</span></a></span><span>
+</span><span id="line-123"></span><span>  </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">ExtraOp -&gt; ExtraOp -&gt; UnifyResult
+</span><a href="#local-6989586621679112137"><span class="hs-identifier hs-var">go</span></a></span><span> </span><span class="annot"><span class="annottext">ExtraOp
+</span><a href="#local-6989586621679112140"><span class="hs-identifier hs-var">u</span></a></span><span> </span><span class="annot"><span class="annottext">ExtraOp
+</span><a href="#local-6989586621679112139"><span class="hs-identifier hs-var">v</span></a></span><span>
+</span><span id="line-124"></span><span>  </span><span class="hs-glyph">|</span><span> </span><span class="annot"><span class="annottext">Bool
+</span><span class="hs-identifier hs-var">otherwise</span></span><span>
+</span><span id="line-125"></span><span>  </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">UnifyResult
+</span><a href="GHC.TypeLits.Extra.Solver.Unify.html#Draw"><span class="hs-identifier hs-var">Draw</span></a></span><span>
+</span><span id="line-126"></span><span>  </span><span class="hs-keyword">where</span><span>
+</span><span id="line-127"></span><span>    </span><span id="local-6989586621679112137"><span class="annot"><span class="annottext">go :: ExtraOp -&gt; ExtraOp -&gt; UnifyResult
+</span><a href="#local-6989586621679112137"><span class="hs-identifier hs-var hs-var">go</span></a></span></span><span> </span><span id="local-6989586621679112136"><span class="annot"><span class="annottext">ExtraOp
+</span><a href="#local-6989586621679112136"><span class="hs-identifier hs-var">a</span></a></span></span><span> </span><span id="local-6989586621679112135"><span class="annot"><span class="annottext">ExtraOp
+</span><a href="#local-6989586621679112135"><span class="hs-identifier hs-var">b</span></a></span></span><span> </span><span class="hs-glyph">|</span><span> </span><span class="annot"><span class="annottext">ExtraOp
+</span><a href="#local-6989586621679112136"><span class="hs-identifier hs-var">a</span></a></span><span> </span><span class="annot"><span class="annottext">ExtraOp -&gt; ExtraOp -&gt; Bool
+forall a. Eq a =&gt; a -&gt; a -&gt; Bool
+</span><span class="hs-operator hs-var">==</span></span><span> </span><span class="annot"><span class="annottext">ExtraOp
+</span><a href="#local-6989586621679112135"><span class="hs-identifier hs-var">b</span></a></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">UnifyResult
+</span><a href="GHC.TypeLits.Extra.Solver.Unify.html#Win"><span class="hs-identifier hs-var">Win</span></a></span><span>
+</span><span id="line-128"></span><span>    </span><span class="hs-comment">-- The following operations commute</span><span>
+</span><span id="line-129"></span><span>    </span><span class="annot"><a href="#local-6989586621679112137"><span class="hs-identifier hs-var">go</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><a href="GHC.TypeLits.Extra.Solver.Operations.html#Max"><span class="hs-identifier hs-type">Max</span></a></span><span> </span><span id="local-6989586621679112133"><span class="annot"><span class="annottext">ExtraOp
+</span><a href="#local-6989586621679112133"><span class="hs-identifier hs-var">a</span></a></span></span><span> </span><span id="local-6989586621679112132"><span class="annot"><span class="annottext">ExtraOp
+</span><a href="#local-6989586621679112132"><span class="hs-identifier hs-var">b</span></a></span></span><span class="hs-special">)</span><span> </span><span class="hs-special">(</span><span class="annot"><a href="GHC.TypeLits.Extra.Solver.Operations.html#Max"><span class="hs-identifier hs-type">Max</span></a></span><span> </span><span id="local-6989586621679112131"><span class="annot"><span class="annottext">ExtraOp
+</span><a href="#local-6989586621679112131"><span class="hs-identifier hs-var">x</span></a></span></span><span> </span><span id="local-6989586621679112130"><span class="annot"><span class="annottext">ExtraOp
+</span><a href="#local-6989586621679112130"><span class="hs-identifier hs-var">y</span></a></span></span><span class="hs-special">)</span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">UnifyResult -&gt; UnifyResult -&gt; UnifyResult
+</span><a href="#local-6989586621679112129"><span class="hs-identifier hs-var">commuteResult</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">ExtraOp -&gt; ExtraOp -&gt; UnifyResult
+</span><a href="#local-6989586621679112137"><span class="hs-identifier hs-var">go</span></a></span><span> </span><span class="annot"><span class="annottext">ExtraOp
+</span><a href="#local-6989586621679112133"><span class="hs-identifier hs-var">a</span></a></span><span> </span><span class="annot"><span class="annottext">ExtraOp
+</span><a href="#local-6989586621679112130"><span class="hs-identifier hs-var">y</span></a></span><span class="hs-special">)</span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">ExtraOp -&gt; ExtraOp -&gt; UnifyResult
+</span><a href="#local-6989586621679112137"><span class="hs-identifier hs-var">go</span></a></span><span> </span><span class="annot"><span class="annottext">ExtraOp
+</span><a href="#local-6989586621679112132"><span class="hs-identifier hs-var">b</span></a></span><span> </span><span class="annot"><span class="annottext">ExtraOp
+</span><a href="#local-6989586621679112131"><span class="hs-identifier hs-var">x</span></a></span><span class="hs-special">)</span><span>
+</span><span id="line-130"></span><span>    </span><span class="annot"><a href="#local-6989586621679112137"><span class="hs-identifier hs-var">go</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><a href="GHC.TypeLits.Extra.Solver.Operations.html#Min"><span class="hs-identifier hs-type">Min</span></a></span><span> </span><span id="local-6989586621679112127"><span class="annot"><span class="annottext">ExtraOp
+</span><a href="#local-6989586621679112127"><span class="hs-identifier hs-var">a</span></a></span></span><span> </span><span id="local-6989586621679112126"><span class="annot"><span class="annottext">ExtraOp
+</span><a href="#local-6989586621679112126"><span class="hs-identifier hs-var">b</span></a></span></span><span class="hs-special">)</span><span> </span><span class="hs-special">(</span><span class="annot"><a href="GHC.TypeLits.Extra.Solver.Operations.html#Min"><span class="hs-identifier hs-type">Min</span></a></span><span> </span><span id="local-6989586621679112125"><span class="annot"><span class="annottext">ExtraOp
+</span><a href="#local-6989586621679112125"><span class="hs-identifier hs-var">x</span></a></span></span><span> </span><span id="local-6989586621679112124"><span class="annot"><span class="annottext">ExtraOp
+</span><a href="#local-6989586621679112124"><span class="hs-identifier hs-var">y</span></a></span></span><span class="hs-special">)</span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">UnifyResult -&gt; UnifyResult -&gt; UnifyResult
+</span><a href="#local-6989586621679112129"><span class="hs-identifier hs-var">commuteResult</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">ExtraOp -&gt; ExtraOp -&gt; UnifyResult
+</span><a href="#local-6989586621679112137"><span class="hs-identifier hs-var">go</span></a></span><span> </span><span class="annot"><span class="annottext">ExtraOp
+</span><a href="#local-6989586621679112127"><span class="hs-identifier hs-var">a</span></a></span><span> </span><span class="annot"><span class="annottext">ExtraOp
+</span><a href="#local-6989586621679112124"><span class="hs-identifier hs-var">y</span></a></span><span class="hs-special">)</span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">ExtraOp -&gt; ExtraOp -&gt; UnifyResult
+</span><a href="#local-6989586621679112137"><span class="hs-identifier hs-var">go</span></a></span><span> </span><span class="annot"><span class="annottext">ExtraOp
+</span><a href="#local-6989586621679112126"><span class="hs-identifier hs-var">b</span></a></span><span> </span><span class="annot"><span class="annottext">ExtraOp
+</span><a href="#local-6989586621679112125"><span class="hs-identifier hs-var">x</span></a></span><span class="hs-special">)</span><span>
+</span><span id="line-131"></span><span>    </span><span class="annot"><a href="#local-6989586621679112137"><span class="hs-identifier hs-var">go</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><a href="GHC.TypeLits.Extra.Solver.Operations.html#GCD"><span class="hs-identifier hs-type">GCD</span></a></span><span> </span><span id="local-6989586621679112122"><span class="annot"><span class="annottext">ExtraOp
+</span><a href="#local-6989586621679112122"><span class="hs-identifier hs-var">a</span></a></span></span><span> </span><span id="local-6989586621679112121"><span class="annot"><span class="annottext">ExtraOp
+</span><a href="#local-6989586621679112121"><span class="hs-identifier hs-var">b</span></a></span></span><span class="hs-special">)</span><span> </span><span class="hs-special">(</span><span class="annot"><a href="GHC.TypeLits.Extra.Solver.Operations.html#GCD"><span class="hs-identifier hs-type">GCD</span></a></span><span> </span><span id="local-6989586621679112120"><span class="annot"><span class="annottext">ExtraOp
+</span><a href="#local-6989586621679112120"><span class="hs-identifier hs-var">x</span></a></span></span><span> </span><span id="local-6989586621679112119"><span class="annot"><span class="annottext">ExtraOp
+</span><a href="#local-6989586621679112119"><span class="hs-identifier hs-var">y</span></a></span></span><span class="hs-special">)</span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">UnifyResult -&gt; UnifyResult -&gt; UnifyResult
+</span><a href="#local-6989586621679112129"><span class="hs-identifier hs-var">commuteResult</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">ExtraOp -&gt; ExtraOp -&gt; UnifyResult
+</span><a href="#local-6989586621679112137"><span class="hs-identifier hs-var">go</span></a></span><span> </span><span class="annot"><span class="annottext">ExtraOp
+</span><a href="#local-6989586621679112122"><span class="hs-identifier hs-var">a</span></a></span><span> </span><span class="annot"><span class="annottext">ExtraOp
+</span><a href="#local-6989586621679112119"><span class="hs-identifier hs-var">y</span></a></span><span class="hs-special">)</span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">ExtraOp -&gt; ExtraOp -&gt; UnifyResult
+</span><a href="#local-6989586621679112137"><span class="hs-identifier hs-var">go</span></a></span><span> </span><span class="annot"><span class="annottext">ExtraOp
+</span><a href="#local-6989586621679112121"><span class="hs-identifier hs-var">b</span></a></span><span> </span><span class="annot"><span class="annottext">ExtraOp
+</span><a href="#local-6989586621679112120"><span class="hs-identifier hs-var">x</span></a></span><span class="hs-special">)</span><span>
+</span><span id="line-132"></span><span>    </span><span class="annot"><a href="#local-6989586621679112137"><span class="hs-identifier hs-var">go</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><a href="GHC.TypeLits.Extra.Solver.Operations.html#LCM"><span class="hs-identifier hs-type">LCM</span></a></span><span> </span><span id="local-6989586621679112117"><span class="annot"><span class="annottext">ExtraOp
+</span><a href="#local-6989586621679112117"><span class="hs-identifier hs-var">a</span></a></span></span><span> </span><span id="local-6989586621679112116"><span class="annot"><span class="annottext">ExtraOp
+</span><a href="#local-6989586621679112116"><span class="hs-identifier hs-var">b</span></a></span></span><span class="hs-special">)</span><span> </span><span class="hs-special">(</span><span class="annot"><a href="GHC.TypeLits.Extra.Solver.Operations.html#LCM"><span class="hs-identifier hs-type">LCM</span></a></span><span> </span><span id="local-6989586621679112115"><span class="annot"><span class="annottext">ExtraOp
+</span><a href="#local-6989586621679112115"><span class="hs-identifier hs-var">x</span></a></span></span><span> </span><span id="local-6989586621679112114"><span class="annot"><span class="annottext">ExtraOp
+</span><a href="#local-6989586621679112114"><span class="hs-identifier hs-var">y</span></a></span></span><span class="hs-special">)</span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">UnifyResult -&gt; UnifyResult -&gt; UnifyResult
+</span><a href="#local-6989586621679112129"><span class="hs-identifier hs-var">commuteResult</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">ExtraOp -&gt; ExtraOp -&gt; UnifyResult
+</span><a href="#local-6989586621679112137"><span class="hs-identifier hs-var">go</span></a></span><span> </span><span class="annot"><span class="annottext">ExtraOp
+</span><a href="#local-6989586621679112117"><span class="hs-identifier hs-var">a</span></a></span><span> </span><span class="annot"><span class="annottext">ExtraOp
+</span><a href="#local-6989586621679112114"><span class="hs-identifier hs-var">y</span></a></span><span class="hs-special">)</span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">ExtraOp -&gt; ExtraOp -&gt; UnifyResult
+</span><a href="#local-6989586621679112137"><span class="hs-identifier hs-var">go</span></a></span><span> </span><span class="annot"><span class="annottext">ExtraOp
+</span><a href="#local-6989586621679112116"><span class="hs-identifier hs-var">b</span></a></span><span> </span><span class="annot"><span class="annottext">ExtraOp
+</span><a href="#local-6989586621679112115"><span class="hs-identifier hs-var">x</span></a></span><span class="hs-special">)</span><span>
+</span><span id="line-133"></span><span>    </span><span class="hs-comment">-- If there are operations contained in the type which this solver does</span><span>
+</span><span id="line-134"></span><span>    </span><span class="hs-comment">-- not understand, then the result is a Draw</span><span>
+</span><span id="line-135"></span><span>    </span><span class="annot"><a href="#local-6989586621679112137"><span class="hs-identifier hs-var">go</span></a></span><span> </span><span id="local-6989586621679112113"><span class="annot"><span class="annottext">ExtraOp
+</span><a href="#local-6989586621679112113"><span class="hs-identifier hs-var">a</span></a></span></span><span> </span><span id="local-6989586621679112112"><span class="annot"><span class="annottext">ExtraOp
+</span><a href="#local-6989586621679112112"><span class="hs-identifier hs-var">b</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="hs-keyword">if</span><span> </span><span class="annot"><span class="annottext">ExtraOp -&gt; Bool
+</span><a href="GHC.TypeLits.Extra.Solver.Unify.html#containsConstants"><span class="hs-identifier hs-var">containsConstants</span></a></span><span> </span><span class="annot"><span class="annottext">ExtraOp
+</span><a href="#local-6989586621679112113"><span class="hs-identifier hs-var">a</span></a></span><span> </span><span class="annot"><span class="annottext">Bool -&gt; Bool -&gt; Bool
+</span><span class="hs-operator hs-var">||</span></span><span> </span><span class="annot"><span class="annottext">ExtraOp -&gt; Bool
+</span><a href="GHC.TypeLits.Extra.Solver.Unify.html#containsConstants"><span class="hs-identifier hs-var">containsConstants</span></a></span><span> </span><span class="annot"><span class="annottext">ExtraOp
+</span><a href="#local-6989586621679112112"><span class="hs-identifier hs-var">b</span></a></span><span> </span><span class="hs-keyword">then</span><span> </span><span class="annot"><span class="annottext">UnifyResult
+</span><a href="GHC.TypeLits.Extra.Solver.Unify.html#Draw"><span class="hs-identifier hs-var">Draw</span></a></span><span> </span><span class="hs-keyword">else</span><span> </span><span class="annot"><span class="annottext">UnifyResult
+</span><a href="GHC.TypeLits.Extra.Solver.Unify.html#Lose"><span class="hs-identifier hs-var">Lose</span></a></span><span>
+</span><span id="line-136"></span><span>
+</span><span id="line-137"></span><span>    </span><span id="local-6989586621679112129"><span class="annot"><span class="annottext">commuteResult :: UnifyResult -&gt; UnifyResult -&gt; UnifyResult
+</span><a href="#local-6989586621679112129"><span class="hs-identifier hs-var hs-var">commuteResult</span></a></span></span><span> </span><span class="annot"><span class="annottext">UnifyResult
+</span><a href="GHC.TypeLits.Extra.Solver.Unify.html#Win"><span class="hs-identifier hs-var">Win</span></a></span><span>  </span><span class="annot"><span class="annottext">UnifyResult
+</span><a href="GHC.TypeLits.Extra.Solver.Unify.html#Win"><span class="hs-identifier hs-var">Win</span></a></span><span>  </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">UnifyResult
+</span><a href="GHC.TypeLits.Extra.Solver.Unify.html#Win"><span class="hs-identifier hs-var">Win</span></a></span><span>
+</span><span id="line-138"></span><span>    </span><span class="annot"><a href="#local-6989586621679112129"><span class="hs-identifier hs-var">commuteResult</span></a></span><span> </span><span class="annot"><span class="annottext">UnifyResult
+</span><a href="GHC.TypeLits.Extra.Solver.Unify.html#Lose"><span class="hs-identifier hs-var">Lose</span></a></span><span> </span><span class="annot"><span class="annottext">UnifyResult
+</span><span class="hs-identifier">_</span></span><span>    </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">UnifyResult
+</span><a href="GHC.TypeLits.Extra.Solver.Unify.html#Lose"><span class="hs-identifier hs-var">Lose</span></a></span><span>
+</span><span id="line-139"></span><span>    </span><span class="annot"><a href="#local-6989586621679112129"><span class="hs-identifier hs-var">commuteResult</span></a></span><span> </span><span class="annot"><span class="annottext">UnifyResult
+</span><span class="hs-identifier">_</span></span><span>    </span><span class="annot"><span class="annottext">UnifyResult
+</span><a href="GHC.TypeLits.Extra.Solver.Unify.html#Lose"><span class="hs-identifier hs-var">Lose</span></a></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">UnifyResult
+</span><a href="GHC.TypeLits.Extra.Solver.Unify.html#Lose"><span class="hs-identifier hs-var">Lose</span></a></span><span>
+</span><span id="line-140"></span><span>    </span><span class="annot"><a href="#local-6989586621679112129"><span class="hs-identifier hs-var">commuteResult</span></a></span><span> </span><span class="annot"><span class="annottext">UnifyResult
+</span><span class="hs-identifier">_</span></span><span>    </span><span class="annot"><span class="annottext">UnifyResult
+</span><span class="hs-identifier">_</span></span><span>    </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">UnifyResult
+</span><a href="GHC.TypeLits.Extra.Solver.Unify.html#Draw"><span class="hs-identifier hs-var">Draw</span></a></span><span>
+</span><span id="line-141"></span><span>
+</span><span id="line-142"></span><span class="annot"><a href="GHC.TypeLits.Extra.Solver.Unify.html#fvOP"><span class="hs-identifier hs-type">fvOP</span></a></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="annot"><a href="GHC.TypeLits.Extra.Solver.Operations.html#ExtraOp"><span class="hs-identifier hs-type">ExtraOp</span></a></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="hs-identifier hs-type">UniqSet</span></span><span> </span><span class="annot"><span class="hs-identifier hs-type">TyVar</span></span><span>
+</span><span id="line-143"></span><span id="fvOP"><span class="annot"><span class="annottext">fvOP :: ExtraOp -&gt; UniqSet Var
+</span><a href="GHC.TypeLits.Extra.Solver.Unify.html#fvOP"><span class="hs-identifier hs-var hs-var">fvOP</span></a></span></span><span> </span><span class="hs-special">(</span><span class="annot"><a href="GHC.TypeLits.Extra.Solver.Operations.html#I"><span class="hs-identifier hs-type">I</span></a></span><span> </span><span class="annot"><span class="annottext">Integer
+</span><span class="hs-identifier">_</span></span><span class="hs-special">)</span><span>      </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">UniqSet Var
+forall a. UniqSet a
+</span><span class="hs-identifier hs-var">emptyUniqSet</span></span><span>
+</span><span id="line-144"></span><span class="annot"><a href="GHC.TypeLits.Extra.Solver.Unify.html#fvOP"><span class="hs-identifier hs-var">fvOP</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><a href="GHC.TypeLits.Extra.Solver.Operations.html#V"><span class="hs-identifier hs-type">V</span></a></span><span> </span><span id="local-6989586621679112108"><span class="annot"><span class="annottext">Var
+</span><a href="#local-6989586621679112108"><span class="hs-identifier hs-var">v</span></a></span></span><span class="hs-special">)</span><span>      </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">Var -&gt; UniqSet Var
+forall a. Uniquable a =&gt; a -&gt; UniqSet a
+</span><span class="hs-identifier hs-var">unitUniqSet</span></span><span> </span><span class="annot"><span class="annottext">Var
+</span><a href="#local-6989586621679112108"><span class="hs-identifier hs-var">v</span></a></span><span>
+</span><span id="line-145"></span><span class="annot"><a href="GHC.TypeLits.Extra.Solver.Unify.html#fvOP"><span class="hs-identifier hs-var">fvOP</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><a href="GHC.TypeLits.Extra.Solver.Operations.html#C"><span class="hs-identifier hs-type">C</span></a></span><span> </span><span class="annot"><span class="annottext">CType
+</span><span class="hs-identifier">_</span></span><span class="hs-special">)</span><span>      </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">UniqSet Var
+forall a. UniqSet a
+</span><span class="hs-identifier hs-var">emptyUniqSet</span></span><span>
+</span><span id="line-146"></span><span class="annot"><a href="GHC.TypeLits.Extra.Solver.Unify.html#fvOP"><span class="hs-identifier hs-var">fvOP</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><a href="GHC.TypeLits.Extra.Solver.Operations.html#Max"><span class="hs-identifier hs-type">Max</span></a></span><span> </span><span id="local-6989586621679112107"><span class="annot"><span class="annottext">ExtraOp
+</span><a href="#local-6989586621679112107"><span class="hs-identifier hs-var">x</span></a></span></span><span> </span><span id="local-6989586621679112106"><span class="annot"><span class="annottext">ExtraOp
+</span><a href="#local-6989586621679112106"><span class="hs-identifier hs-var">y</span></a></span></span><span class="hs-special">)</span><span>  </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">ExtraOp -&gt; UniqSet Var
+</span><a href="GHC.TypeLits.Extra.Solver.Unify.html#fvOP"><span class="hs-identifier hs-var">fvOP</span></a></span><span> </span><span class="annot"><span class="annottext">ExtraOp
+</span><a href="#local-6989586621679112107"><span class="hs-identifier hs-var">x</span></a></span><span> </span><span class="annot"><span class="annottext">UniqSet Var -&gt; UniqSet Var -&gt; UniqSet Var
+forall a. UniqSet a -&gt; UniqSet a -&gt; UniqSet a
+</span><span class="hs-operator hs-var">`unionUniqSets`</span></span><span> </span><span class="annot"><span class="annottext">ExtraOp -&gt; UniqSet Var
+</span><a href="GHC.TypeLits.Extra.Solver.Unify.html#fvOP"><span class="hs-identifier hs-var">fvOP</span></a></span><span> </span><span class="annot"><span class="annottext">ExtraOp
+</span><a href="#local-6989586621679112106"><span class="hs-identifier hs-var">y</span></a></span><span>
+</span><span id="line-147"></span><span class="annot"><a href="GHC.TypeLits.Extra.Solver.Unify.html#fvOP"><span class="hs-identifier hs-var">fvOP</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><a href="GHC.TypeLits.Extra.Solver.Operations.html#Min"><span class="hs-identifier hs-type">Min</span></a></span><span> </span><span id="local-6989586621679112105"><span class="annot"><span class="annottext">ExtraOp
+</span><a href="#local-6989586621679112105"><span class="hs-identifier hs-var">x</span></a></span></span><span> </span><span id="local-6989586621679112104"><span class="annot"><span class="annottext">ExtraOp
+</span><a href="#local-6989586621679112104"><span class="hs-identifier hs-var">y</span></a></span></span><span class="hs-special">)</span><span>  </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">ExtraOp -&gt; UniqSet Var
+</span><a href="GHC.TypeLits.Extra.Solver.Unify.html#fvOP"><span class="hs-identifier hs-var">fvOP</span></a></span><span> </span><span class="annot"><span class="annottext">ExtraOp
+</span><a href="#local-6989586621679112105"><span class="hs-identifier hs-var">x</span></a></span><span> </span><span class="annot"><span class="annottext">UniqSet Var -&gt; UniqSet Var -&gt; UniqSet Var
+forall a. UniqSet a -&gt; UniqSet a -&gt; UniqSet a
+</span><span class="hs-operator hs-var">`unionUniqSets`</span></span><span> </span><span class="annot"><span class="annottext">ExtraOp -&gt; UniqSet Var
+</span><a href="GHC.TypeLits.Extra.Solver.Unify.html#fvOP"><span class="hs-identifier hs-var">fvOP</span></a></span><span> </span><span class="annot"><span class="annottext">ExtraOp
+</span><a href="#local-6989586621679112104"><span class="hs-identifier hs-var">y</span></a></span><span>
+</span><span id="line-148"></span><span class="annot"><a href="GHC.TypeLits.Extra.Solver.Unify.html#fvOP"><span class="hs-identifier hs-var">fvOP</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><a href="GHC.TypeLits.Extra.Solver.Operations.html#Div"><span class="hs-identifier hs-type">Div</span></a></span><span> </span><span id="local-6989586621679112102"><span class="annot"><span class="annottext">ExtraOp
+</span><a href="#local-6989586621679112102"><span class="hs-identifier hs-var">x</span></a></span></span><span> </span><span id="local-6989586621679112101"><span class="annot"><span class="annottext">ExtraOp
+</span><a href="#local-6989586621679112101"><span class="hs-identifier hs-var">y</span></a></span></span><span class="hs-special">)</span><span>  </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">ExtraOp -&gt; UniqSet Var
+</span><a href="GHC.TypeLits.Extra.Solver.Unify.html#fvOP"><span class="hs-identifier hs-var">fvOP</span></a></span><span> </span><span class="annot"><span class="annottext">ExtraOp
+</span><a href="#local-6989586621679112102"><span class="hs-identifier hs-var">x</span></a></span><span> </span><span class="annot"><span class="annottext">UniqSet Var -&gt; UniqSet Var -&gt; UniqSet Var
+forall a. UniqSet a -&gt; UniqSet a -&gt; UniqSet a
+</span><span class="hs-operator hs-var">`unionUniqSets`</span></span><span> </span><span class="annot"><span class="annottext">ExtraOp -&gt; UniqSet Var
+</span><a href="GHC.TypeLits.Extra.Solver.Unify.html#fvOP"><span class="hs-identifier hs-var">fvOP</span></a></span><span> </span><span class="annot"><span class="annottext">ExtraOp
+</span><a href="#local-6989586621679112101"><span class="hs-identifier hs-var">y</span></a></span><span>
+</span><span id="line-149"></span><span class="annot"><a href="GHC.TypeLits.Extra.Solver.Unify.html#fvOP"><span class="hs-identifier hs-var">fvOP</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><a href="GHC.TypeLits.Extra.Solver.Operations.html#Mod"><span class="hs-identifier hs-type">Mod</span></a></span><span> </span><span id="local-6989586621679112099"><span class="annot"><span class="annottext">ExtraOp
+</span><a href="#local-6989586621679112099"><span class="hs-identifier hs-var">x</span></a></span></span><span> </span><span id="local-6989586621679112098"><span class="annot"><span class="annottext">ExtraOp
+</span><a href="#local-6989586621679112098"><span class="hs-identifier hs-var">y</span></a></span></span><span class="hs-special">)</span><span>  </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">ExtraOp -&gt; UniqSet Var
+</span><a href="GHC.TypeLits.Extra.Solver.Unify.html#fvOP"><span class="hs-identifier hs-var">fvOP</span></a></span><span> </span><span class="annot"><span class="annottext">ExtraOp
+</span><a href="#local-6989586621679112099"><span class="hs-identifier hs-var">x</span></a></span><span> </span><span class="annot"><span class="annottext">UniqSet Var -&gt; UniqSet Var -&gt; UniqSet Var
+forall a. UniqSet a -&gt; UniqSet a -&gt; UniqSet a
+</span><span class="hs-operator hs-var">`unionUniqSets`</span></span><span> </span><span class="annot"><span class="annottext">ExtraOp -&gt; UniqSet Var
+</span><a href="GHC.TypeLits.Extra.Solver.Unify.html#fvOP"><span class="hs-identifier hs-var">fvOP</span></a></span><span> </span><span class="annot"><span class="annottext">ExtraOp
+</span><a href="#local-6989586621679112098"><span class="hs-identifier hs-var">y</span></a></span><span>
+</span><span id="line-150"></span><span class="annot"><a href="GHC.TypeLits.Extra.Solver.Unify.html#fvOP"><span class="hs-identifier hs-var">fvOP</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><a href="GHC.TypeLits.Extra.Solver.Operations.html#FLog"><span class="hs-identifier hs-type">FLog</span></a></span><span> </span><span id="local-6989586621679112096"><span class="annot"><span class="annottext">ExtraOp
+</span><a href="#local-6989586621679112096"><span class="hs-identifier hs-var">x</span></a></span></span><span> </span><span id="local-6989586621679112095"><span class="annot"><span class="annottext">ExtraOp
+</span><a href="#local-6989586621679112095"><span class="hs-identifier hs-var">y</span></a></span></span><span class="hs-special">)</span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">ExtraOp -&gt; UniqSet Var
+</span><a href="GHC.TypeLits.Extra.Solver.Unify.html#fvOP"><span class="hs-identifier hs-var">fvOP</span></a></span><span> </span><span class="annot"><span class="annottext">ExtraOp
+</span><a href="#local-6989586621679112096"><span class="hs-identifier hs-var">x</span></a></span><span> </span><span class="annot"><span class="annottext">UniqSet Var -&gt; UniqSet Var -&gt; UniqSet Var
+forall a. UniqSet a -&gt; UniqSet a -&gt; UniqSet a
+</span><span class="hs-operator hs-var">`unionUniqSets`</span></span><span> </span><span class="annot"><span class="annottext">ExtraOp -&gt; UniqSet Var
+</span><a href="GHC.TypeLits.Extra.Solver.Unify.html#fvOP"><span class="hs-identifier hs-var">fvOP</span></a></span><span> </span><span class="annot"><span class="annottext">ExtraOp
+</span><a href="#local-6989586621679112095"><span class="hs-identifier hs-var">y</span></a></span><span>
+</span><span id="line-151"></span><span class="annot"><a href="GHC.TypeLits.Extra.Solver.Unify.html#fvOP"><span class="hs-identifier hs-var">fvOP</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><a href="GHC.TypeLits.Extra.Solver.Operations.html#CLog"><span class="hs-identifier hs-type">CLog</span></a></span><span> </span><span id="local-6989586621679112093"><span class="annot"><span class="annottext">ExtraOp
+</span><a href="#local-6989586621679112093"><span class="hs-identifier hs-var">x</span></a></span></span><span> </span><span id="local-6989586621679112092"><span class="annot"><span class="annottext">ExtraOp
+</span><a href="#local-6989586621679112092"><span class="hs-identifier hs-var">y</span></a></span></span><span class="hs-special">)</span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">ExtraOp -&gt; UniqSet Var
+</span><a href="GHC.TypeLits.Extra.Solver.Unify.html#fvOP"><span class="hs-identifier hs-var">fvOP</span></a></span><span> </span><span class="annot"><span class="annottext">ExtraOp
+</span><a href="#local-6989586621679112093"><span class="hs-identifier hs-var">x</span></a></span><span> </span><span class="annot"><span class="annottext">UniqSet Var -&gt; UniqSet Var -&gt; UniqSet Var
+forall a. UniqSet a -&gt; UniqSet a -&gt; UniqSet a
+</span><span class="hs-operator hs-var">`unionUniqSets`</span></span><span> </span><span class="annot"><span class="annottext">ExtraOp -&gt; UniqSet Var
+</span><a href="GHC.TypeLits.Extra.Solver.Unify.html#fvOP"><span class="hs-identifier hs-var">fvOP</span></a></span><span> </span><span class="annot"><span class="annottext">ExtraOp
+</span><a href="#local-6989586621679112092"><span class="hs-identifier hs-var">y</span></a></span><span>
+</span><span id="line-152"></span><span class="annot"><a href="GHC.TypeLits.Extra.Solver.Unify.html#fvOP"><span class="hs-identifier hs-var">fvOP</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><a href="GHC.TypeLits.Extra.Solver.Operations.html#Log"><span class="hs-identifier hs-type">Log</span></a></span><span> </span><span id="local-6989586621679112090"><span class="annot"><span class="annottext">ExtraOp
+</span><a href="#local-6989586621679112090"><span class="hs-identifier hs-var">x</span></a></span></span><span> </span><span id="local-6989586621679112089"><span class="annot"><span class="annottext">ExtraOp
+</span><a href="#local-6989586621679112089"><span class="hs-identifier hs-var">y</span></a></span></span><span class="hs-special">)</span><span>  </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">ExtraOp -&gt; UniqSet Var
+</span><a href="GHC.TypeLits.Extra.Solver.Unify.html#fvOP"><span class="hs-identifier hs-var">fvOP</span></a></span><span> </span><span class="annot"><span class="annottext">ExtraOp
+</span><a href="#local-6989586621679112090"><span class="hs-identifier hs-var">x</span></a></span><span> </span><span class="annot"><span class="annottext">UniqSet Var -&gt; UniqSet Var -&gt; UniqSet Var
+forall a. UniqSet a -&gt; UniqSet a -&gt; UniqSet a
+</span><span class="hs-operator hs-var">`unionUniqSets`</span></span><span> </span><span class="annot"><span class="annottext">ExtraOp -&gt; UniqSet Var
+</span><a href="GHC.TypeLits.Extra.Solver.Unify.html#fvOP"><span class="hs-identifier hs-var">fvOP</span></a></span><span> </span><span class="annot"><span class="annottext">ExtraOp
+</span><a href="#local-6989586621679112089"><span class="hs-identifier hs-var">y</span></a></span><span>
+</span><span id="line-153"></span><span class="annot"><a href="GHC.TypeLits.Extra.Solver.Unify.html#fvOP"><span class="hs-identifier hs-var">fvOP</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><a href="GHC.TypeLits.Extra.Solver.Operations.html#GCD"><span class="hs-identifier hs-type">GCD</span></a></span><span> </span><span id="local-6989586621679112088"><span class="annot"><span class="annottext">ExtraOp
+</span><a href="#local-6989586621679112088"><span class="hs-identifier hs-var">x</span></a></span></span><span> </span><span id="local-6989586621679112087"><span class="annot"><span class="annottext">ExtraOp
+</span><a href="#local-6989586621679112087"><span class="hs-identifier hs-var">y</span></a></span></span><span class="hs-special">)</span><span>  </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">ExtraOp -&gt; UniqSet Var
+</span><a href="GHC.TypeLits.Extra.Solver.Unify.html#fvOP"><span class="hs-identifier hs-var">fvOP</span></a></span><span> </span><span class="annot"><span class="annottext">ExtraOp
+</span><a href="#local-6989586621679112088"><span class="hs-identifier hs-var">x</span></a></span><span> </span><span class="annot"><span class="annottext">UniqSet Var -&gt; UniqSet Var -&gt; UniqSet Var
+forall a. UniqSet a -&gt; UniqSet a -&gt; UniqSet a
+</span><span class="hs-operator hs-var">`unionUniqSets`</span></span><span> </span><span class="annot"><span class="annottext">ExtraOp -&gt; UniqSet Var
+</span><a href="GHC.TypeLits.Extra.Solver.Unify.html#fvOP"><span class="hs-identifier hs-var">fvOP</span></a></span><span> </span><span class="annot"><span class="annottext">ExtraOp
+</span><a href="#local-6989586621679112087"><span class="hs-identifier hs-var">y</span></a></span><span>
+</span><span id="line-154"></span><span class="annot"><a href="GHC.TypeLits.Extra.Solver.Unify.html#fvOP"><span class="hs-identifier hs-var">fvOP</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><a href="GHC.TypeLits.Extra.Solver.Operations.html#LCM"><span class="hs-identifier hs-type">LCM</span></a></span><span> </span><span id="local-6989586621679112086"><span class="annot"><span class="annottext">ExtraOp
+</span><a href="#local-6989586621679112086"><span class="hs-identifier hs-var">x</span></a></span></span><span> </span><span id="local-6989586621679112085"><span class="annot"><span class="annottext">ExtraOp
+</span><a href="#local-6989586621679112085"><span class="hs-identifier hs-var">y</span></a></span></span><span class="hs-special">)</span><span>  </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">ExtraOp -&gt; UniqSet Var
+</span><a href="GHC.TypeLits.Extra.Solver.Unify.html#fvOP"><span class="hs-identifier hs-var">fvOP</span></a></span><span> </span><span class="annot"><span class="annottext">ExtraOp
+</span><a href="#local-6989586621679112086"><span class="hs-identifier hs-var">x</span></a></span><span> </span><span class="annot"><span class="annottext">UniqSet Var -&gt; UniqSet Var -&gt; UniqSet Var
+forall a. UniqSet a -&gt; UniqSet a -&gt; UniqSet a
+</span><span class="hs-operator hs-var">`unionUniqSets`</span></span><span> </span><span class="annot"><span class="annottext">ExtraOp -&gt; UniqSet Var
+</span><a href="GHC.TypeLits.Extra.Solver.Unify.html#fvOP"><span class="hs-identifier hs-var">fvOP</span></a></span><span> </span><span class="annot"><span class="annottext">ExtraOp
+</span><a href="#local-6989586621679112085"><span class="hs-identifier hs-var">y</span></a></span><span>
+</span><span id="line-155"></span><span class="annot"><a href="GHC.TypeLits.Extra.Solver.Unify.html#fvOP"><span class="hs-identifier hs-var">fvOP</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><a href="GHC.TypeLits.Extra.Solver.Operations.html#Exp"><span class="hs-identifier hs-type">Exp</span></a></span><span> </span><span id="local-6989586621679112083"><span class="annot"><span class="annottext">ExtraOp
+</span><a href="#local-6989586621679112083"><span class="hs-identifier hs-var">x</span></a></span></span><span> </span><span id="local-6989586621679112082"><span class="annot"><span class="annottext">ExtraOp
+</span><a href="#local-6989586621679112082"><span class="hs-identifier hs-var">y</span></a></span></span><span class="hs-special">)</span><span>  </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">ExtraOp -&gt; UniqSet Var
+</span><a href="GHC.TypeLits.Extra.Solver.Unify.html#fvOP"><span class="hs-identifier hs-var">fvOP</span></a></span><span> </span><span class="annot"><span class="annottext">ExtraOp
+</span><a href="#local-6989586621679112083"><span class="hs-identifier hs-var">x</span></a></span><span> </span><span class="annot"><span class="annottext">UniqSet Var -&gt; UniqSet Var -&gt; UniqSet Var
+forall a. UniqSet a -&gt; UniqSet a -&gt; UniqSet a
+</span><span class="hs-operator hs-var">`unionUniqSets`</span></span><span> </span><span class="annot"><span class="annottext">ExtraOp -&gt; UniqSet Var
+</span><a href="GHC.TypeLits.Extra.Solver.Unify.html#fvOP"><span class="hs-identifier hs-var">fvOP</span></a></span><span> </span><span class="annot"><span class="annottext">ExtraOp
+</span><a href="#local-6989586621679112082"><span class="hs-identifier hs-var">y</span></a></span><span>
+</span><span id="line-156"></span><span>
+</span><span id="line-157"></span><span class="annot"><a href="GHC.TypeLits.Extra.Solver.Unify.html#eqFV"><span class="hs-identifier hs-type">eqFV</span></a></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="annot"><a href="GHC.TypeLits.Extra.Solver.Operations.html#ExtraOp"><span class="hs-identifier hs-type">ExtraOp</span></a></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><a href="GHC.TypeLits.Extra.Solver.Operations.html#ExtraOp"><span class="hs-identifier hs-type">ExtraOp</span></a></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="hs-identifier hs-type">Bool</span></span><span>
+</span><span id="line-158"></span><span id="eqFV"><span class="annot"><span class="annottext">eqFV :: ExtraOp -&gt; ExtraOp -&gt; Bool
+</span><a href="GHC.TypeLits.Extra.Solver.Unify.html#eqFV"><span class="hs-identifier hs-var hs-var">eqFV</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">UniqSet Var -&gt; UniqSet Var -&gt; Bool
+forall a. Eq a =&gt; a -&gt; a -&gt; Bool
+</span><span class="hs-operator hs-var">(==)</span></span><span> </span><span class="annot"><span class="annottext">(UniqSet Var -&gt; UniqSet Var -&gt; Bool)
+-&gt; (ExtraOp -&gt; UniqSet Var) -&gt; ExtraOp -&gt; ExtraOp -&gt; Bool
+forall b c a. (b -&gt; b -&gt; c) -&gt; (a -&gt; b) -&gt; a -&gt; a -&gt; c
+</span><span class="hs-operator hs-var">`on`</span></span><span> </span><span class="annot"><span class="annottext">ExtraOp -&gt; UniqSet Var
+</span><a href="GHC.TypeLits.Extra.Solver.Unify.html#fvOP"><span class="hs-identifier hs-var">fvOP</span></a></span><span>
+</span><span id="line-159"></span><span>
+</span><span id="line-160"></span><span class="annot"><a href="GHC.TypeLits.Extra.Solver.Unify.html#containsConstants"><span class="hs-identifier hs-type">containsConstants</span></a></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="annot"><a href="GHC.TypeLits.Extra.Solver.Operations.html#ExtraOp"><span class="hs-identifier hs-type">ExtraOp</span></a></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="hs-identifier hs-type">Bool</span></span><span>
+</span><span id="line-161"></span><span id="containsConstants"><span class="annot"><span class="annottext">containsConstants :: ExtraOp -&gt; Bool
+</span><a href="GHC.TypeLits.Extra.Solver.Unify.html#containsConstants"><span class="hs-identifier hs-var hs-var">containsConstants</span></a></span></span><span> </span><span class="hs-special">(</span><span class="annot"><a href="GHC.TypeLits.Extra.Solver.Operations.html#I"><span class="hs-identifier hs-type">I</span></a></span><span> </span><span class="annot"><span class="annottext">Integer
+</span><span class="hs-identifier">_</span></span><span class="hs-special">)</span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">Bool
+</span><span class="hs-identifier hs-var">False</span></span><span>
+</span><span id="line-162"></span><span class="annot"><a href="GHC.TypeLits.Extra.Solver.Unify.html#containsConstants"><span class="hs-identifier hs-var">containsConstants</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><a href="GHC.TypeLits.Extra.Solver.Operations.html#V"><span class="hs-identifier hs-type">V</span></a></span><span> </span><span class="annot"><span class="annottext">Var
+</span><span class="hs-identifier">_</span></span><span class="hs-special">)</span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">Bool
+</span><span class="hs-identifier hs-var">False</span></span><span>
+</span><span id="line-163"></span><span class="annot"><a href="GHC.TypeLits.Extra.Solver.Unify.html#containsConstants"><span class="hs-identifier hs-var">containsConstants</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><a href="GHC.TypeLits.Extra.Solver.Operations.html#C"><span class="hs-identifier hs-type">C</span></a></span><span> </span><span class="annot"><span class="annottext">CType
+</span><span class="hs-identifier">_</span></span><span class="hs-special">)</span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">Bool
+</span><span class="hs-identifier hs-var">True</span></span><span>
+</span><span id="line-164"></span><span class="annot"><a href="GHC.TypeLits.Extra.Solver.Unify.html#containsConstants"><span class="hs-identifier hs-var">containsConstants</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><a href="GHC.TypeLits.Extra.Solver.Operations.html#Max"><span class="hs-identifier hs-type">Max</span></a></span><span> </span><span id="local-6989586621679112081"><span class="annot"><span class="annottext">ExtraOp
+</span><a href="#local-6989586621679112081"><span class="hs-identifier hs-var">x</span></a></span></span><span> </span><span id="local-6989586621679112080"><span class="annot"><span class="annottext">ExtraOp
+</span><a href="#local-6989586621679112080"><span class="hs-identifier hs-var">y</span></a></span></span><span class="hs-special">)</span><span>  </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">ExtraOp -&gt; Bool
+</span><a href="GHC.TypeLits.Extra.Solver.Unify.html#containsConstants"><span class="hs-identifier hs-var">containsConstants</span></a></span><span> </span><span class="annot"><span class="annottext">ExtraOp
+</span><a href="#local-6989586621679112081"><span class="hs-identifier hs-var">x</span></a></span><span> </span><span class="annot"><span class="annottext">Bool -&gt; Bool -&gt; Bool
+</span><span class="hs-operator hs-var">||</span></span><span> </span><span class="annot"><span class="annottext">ExtraOp -&gt; Bool
+</span><a href="GHC.TypeLits.Extra.Solver.Unify.html#containsConstants"><span class="hs-identifier hs-var">containsConstants</span></a></span><span> </span><span class="annot"><span class="annottext">ExtraOp
+</span><a href="#local-6989586621679112080"><span class="hs-identifier hs-var">y</span></a></span><span>
+</span><span id="line-165"></span><span class="annot"><a href="GHC.TypeLits.Extra.Solver.Unify.html#containsConstants"><span class="hs-identifier hs-var">containsConstants</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><a href="GHC.TypeLits.Extra.Solver.Operations.html#Min"><span class="hs-identifier hs-type">Min</span></a></span><span> </span><span id="local-6989586621679112079"><span class="annot"><span class="annottext">ExtraOp
+</span><a href="#local-6989586621679112079"><span class="hs-identifier hs-var">x</span></a></span></span><span> </span><span id="local-6989586621679112078"><span class="annot"><span class="annottext">ExtraOp
+</span><a href="#local-6989586621679112078"><span class="hs-identifier hs-var">y</span></a></span></span><span class="hs-special">)</span><span>  </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">ExtraOp -&gt; Bool
+</span><a href="GHC.TypeLits.Extra.Solver.Unify.html#containsConstants"><span class="hs-identifier hs-var">containsConstants</span></a></span><span> </span><span class="annot"><span class="annottext">ExtraOp
+</span><a href="#local-6989586621679112079"><span class="hs-identifier hs-var">x</span></a></span><span> </span><span class="annot"><span class="annottext">Bool -&gt; Bool -&gt; Bool
+</span><span class="hs-operator hs-var">||</span></span><span> </span><span class="annot"><span class="annottext">ExtraOp -&gt; Bool
+</span><a href="GHC.TypeLits.Extra.Solver.Unify.html#containsConstants"><span class="hs-identifier hs-var">containsConstants</span></a></span><span> </span><span class="annot"><span class="annottext">ExtraOp
+</span><a href="#local-6989586621679112078"><span class="hs-identifier hs-var">y</span></a></span><span>
+</span><span id="line-166"></span><span class="annot"><a href="GHC.TypeLits.Extra.Solver.Unify.html#containsConstants"><span class="hs-identifier hs-var">containsConstants</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><a href="GHC.TypeLits.Extra.Solver.Operations.html#Div"><span class="hs-identifier hs-type">Div</span></a></span><span> </span><span id="local-6989586621679112077"><span class="annot"><span class="annottext">ExtraOp
+</span><a href="#local-6989586621679112077"><span class="hs-identifier hs-var">x</span></a></span></span><span> </span><span id="local-6989586621679112076"><span class="annot"><span class="annottext">ExtraOp
+</span><a href="#local-6989586621679112076"><span class="hs-identifier hs-var">y</span></a></span></span><span class="hs-special">)</span><span>  </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">ExtraOp -&gt; Bool
+</span><a href="GHC.TypeLits.Extra.Solver.Unify.html#containsConstants"><span class="hs-identifier hs-var">containsConstants</span></a></span><span> </span><span class="annot"><span class="annottext">ExtraOp
+</span><a href="#local-6989586621679112077"><span class="hs-identifier hs-var">x</span></a></span><span> </span><span class="annot"><span class="annottext">Bool -&gt; Bool -&gt; Bool
+</span><span class="hs-operator hs-var">||</span></span><span> </span><span class="annot"><span class="annottext">ExtraOp -&gt; Bool
+</span><a href="GHC.TypeLits.Extra.Solver.Unify.html#containsConstants"><span class="hs-identifier hs-var">containsConstants</span></a></span><span> </span><span class="annot"><span class="annottext">ExtraOp
+</span><a href="#local-6989586621679112076"><span class="hs-identifier hs-var">y</span></a></span><span>
+</span><span id="line-167"></span><span class="annot"><a href="GHC.TypeLits.Extra.Solver.Unify.html#containsConstants"><span class="hs-identifier hs-var">containsConstants</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><a href="GHC.TypeLits.Extra.Solver.Operations.html#Mod"><span class="hs-identifier hs-type">Mod</span></a></span><span> </span><span id="local-6989586621679112075"><span class="annot"><span class="annottext">ExtraOp
+</span><a href="#local-6989586621679112075"><span class="hs-identifier hs-var">x</span></a></span></span><span> </span><span id="local-6989586621679112074"><span class="annot"><span class="annottext">ExtraOp
+</span><a href="#local-6989586621679112074"><span class="hs-identifier hs-var">y</span></a></span></span><span class="hs-special">)</span><span>  </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">ExtraOp -&gt; Bool
+</span><a href="GHC.TypeLits.Extra.Solver.Unify.html#containsConstants"><span class="hs-identifier hs-var">containsConstants</span></a></span><span> </span><span class="annot"><span class="annottext">ExtraOp
+</span><a href="#local-6989586621679112075"><span class="hs-identifier hs-var">x</span></a></span><span> </span><span class="annot"><span class="annottext">Bool -&gt; Bool -&gt; Bool
+</span><span class="hs-operator hs-var">||</span></span><span> </span><span class="annot"><span class="annottext">ExtraOp -&gt; Bool
+</span><a href="GHC.TypeLits.Extra.Solver.Unify.html#containsConstants"><span class="hs-identifier hs-var">containsConstants</span></a></span><span> </span><span class="annot"><span class="annottext">ExtraOp
+</span><a href="#local-6989586621679112074"><span class="hs-identifier hs-var">y</span></a></span><span>
+</span><span id="line-168"></span><span class="annot"><a href="GHC.TypeLits.Extra.Solver.Unify.html#containsConstants"><span class="hs-identifier hs-var">containsConstants</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><a href="GHC.TypeLits.Extra.Solver.Operations.html#FLog"><span class="hs-identifier hs-type">FLog</span></a></span><span> </span><span id="local-6989586621679112073"><span class="annot"><span class="annottext">ExtraOp
+</span><a href="#local-6989586621679112073"><span class="hs-identifier hs-var">x</span></a></span></span><span> </span><span id="local-6989586621679112072"><span class="annot"><span class="annottext">ExtraOp
+</span><a href="#local-6989586621679112072"><span class="hs-identifier hs-var">y</span></a></span></span><span class="hs-special">)</span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">ExtraOp -&gt; Bool
+</span><a href="GHC.TypeLits.Extra.Solver.Unify.html#containsConstants"><span class="hs-identifier hs-var">containsConstants</span></a></span><span> </span><span class="annot"><span class="annottext">ExtraOp
+</span><a href="#local-6989586621679112073"><span class="hs-identifier hs-var">x</span></a></span><span> </span><span class="annot"><span class="annottext">Bool -&gt; Bool -&gt; Bool
+</span><span class="hs-operator hs-var">||</span></span><span> </span><span class="annot"><span class="annottext">ExtraOp -&gt; Bool
+</span><a href="GHC.TypeLits.Extra.Solver.Unify.html#containsConstants"><span class="hs-identifier hs-var">containsConstants</span></a></span><span> </span><span class="annot"><span class="annottext">ExtraOp
+</span><a href="#local-6989586621679112072"><span class="hs-identifier hs-var">y</span></a></span><span>
+</span><span id="line-169"></span><span class="annot"><a href="GHC.TypeLits.Extra.Solver.Unify.html#containsConstants"><span class="hs-identifier hs-var">containsConstants</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><a href="GHC.TypeLits.Extra.Solver.Operations.html#CLog"><span class="hs-identifier hs-type">CLog</span></a></span><span> </span><span id="local-6989586621679112071"><span class="annot"><span class="annottext">ExtraOp
+</span><a href="#local-6989586621679112071"><span class="hs-identifier hs-var">x</span></a></span></span><span> </span><span id="local-6989586621679112070"><span class="annot"><span class="annottext">ExtraOp
+</span><a href="#local-6989586621679112070"><span class="hs-identifier hs-var">y</span></a></span></span><span class="hs-special">)</span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">ExtraOp -&gt; Bool
+</span><a href="GHC.TypeLits.Extra.Solver.Unify.html#containsConstants"><span class="hs-identifier hs-var">containsConstants</span></a></span><span> </span><span class="annot"><span class="annottext">ExtraOp
+</span><a href="#local-6989586621679112071"><span class="hs-identifier hs-var">x</span></a></span><span> </span><span class="annot"><span class="annottext">Bool -&gt; Bool -&gt; Bool
+</span><span class="hs-operator hs-var">||</span></span><span> </span><span class="annot"><span class="annottext">ExtraOp -&gt; Bool
+</span><a href="GHC.TypeLits.Extra.Solver.Unify.html#containsConstants"><span class="hs-identifier hs-var">containsConstants</span></a></span><span> </span><span class="annot"><span class="annottext">ExtraOp
+</span><a href="#local-6989586621679112070"><span class="hs-identifier hs-var">y</span></a></span><span>
+</span><span id="line-170"></span><span class="annot"><a href="GHC.TypeLits.Extra.Solver.Unify.html#containsConstants"><span class="hs-identifier hs-var">containsConstants</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><a href="GHC.TypeLits.Extra.Solver.Operations.html#Log"><span class="hs-identifier hs-type">Log</span></a></span><span> </span><span id="local-6989586621679112069"><span class="annot"><span class="annottext">ExtraOp
+</span><a href="#local-6989586621679112069"><span class="hs-identifier hs-var">x</span></a></span></span><span> </span><span id="local-6989586621679112068"><span class="annot"><span class="annottext">ExtraOp
+</span><a href="#local-6989586621679112068"><span class="hs-identifier hs-var">y</span></a></span></span><span class="hs-special">)</span><span>  </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">ExtraOp -&gt; Bool
+</span><a href="GHC.TypeLits.Extra.Solver.Unify.html#containsConstants"><span class="hs-identifier hs-var">containsConstants</span></a></span><span> </span><span class="annot"><span class="annottext">ExtraOp
+</span><a href="#local-6989586621679112069"><span class="hs-identifier hs-var">x</span></a></span><span> </span><span class="annot"><span class="annottext">Bool -&gt; Bool -&gt; Bool
+</span><span class="hs-operator hs-var">||</span></span><span> </span><span class="annot"><span class="annottext">ExtraOp -&gt; Bool
+</span><a href="GHC.TypeLits.Extra.Solver.Unify.html#containsConstants"><span class="hs-identifier hs-var">containsConstants</span></a></span><span> </span><span class="annot"><span class="annottext">ExtraOp
+</span><a href="#local-6989586621679112068"><span class="hs-identifier hs-var">y</span></a></span><span>
+</span><span id="line-171"></span><span class="annot"><a href="GHC.TypeLits.Extra.Solver.Unify.html#containsConstants"><span class="hs-identifier hs-var">containsConstants</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><a href="GHC.TypeLits.Extra.Solver.Operations.html#GCD"><span class="hs-identifier hs-type">GCD</span></a></span><span> </span><span id="local-6989586621679112067"><span class="annot"><span class="annottext">ExtraOp
+</span><a href="#local-6989586621679112067"><span class="hs-identifier hs-var">x</span></a></span></span><span> </span><span id="local-6989586621679112066"><span class="annot"><span class="annottext">ExtraOp
+</span><a href="#local-6989586621679112066"><span class="hs-identifier hs-var">y</span></a></span></span><span class="hs-special">)</span><span>  </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">ExtraOp -&gt; Bool
+</span><a href="GHC.TypeLits.Extra.Solver.Unify.html#containsConstants"><span class="hs-identifier hs-var">containsConstants</span></a></span><span> </span><span class="annot"><span class="annottext">ExtraOp
+</span><a href="#local-6989586621679112067"><span class="hs-identifier hs-var">x</span></a></span><span> </span><span class="annot"><span class="annottext">Bool -&gt; Bool -&gt; Bool
+</span><span class="hs-operator hs-var">||</span></span><span> </span><span class="annot"><span class="annottext">ExtraOp -&gt; Bool
+</span><a href="GHC.TypeLits.Extra.Solver.Unify.html#containsConstants"><span class="hs-identifier hs-var">containsConstants</span></a></span><span> </span><span class="annot"><span class="annottext">ExtraOp
+</span><a href="#local-6989586621679112066"><span class="hs-identifier hs-var">y</span></a></span><span>
+</span><span id="line-172"></span><span class="annot"><a href="GHC.TypeLits.Extra.Solver.Unify.html#containsConstants"><span class="hs-identifier hs-var">containsConstants</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><a href="GHC.TypeLits.Extra.Solver.Operations.html#LCM"><span class="hs-identifier hs-type">LCM</span></a></span><span> </span><span id="local-6989586621679112065"><span class="annot"><span class="annottext">ExtraOp
+</span><a href="#local-6989586621679112065"><span class="hs-identifier hs-var">x</span></a></span></span><span> </span><span id="local-6989586621679112064"><span class="annot"><span class="annottext">ExtraOp
+</span><a href="#local-6989586621679112064"><span class="hs-identifier hs-var">y</span></a></span></span><span class="hs-special">)</span><span>  </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">ExtraOp -&gt; Bool
+</span><a href="GHC.TypeLits.Extra.Solver.Unify.html#containsConstants"><span class="hs-identifier hs-var">containsConstants</span></a></span><span> </span><span class="annot"><span class="annottext">ExtraOp
+</span><a href="#local-6989586621679112065"><span class="hs-identifier hs-var">x</span></a></span><span> </span><span class="annot"><span class="annottext">Bool -&gt; Bool -&gt; Bool
+</span><span class="hs-operator hs-var">||</span></span><span> </span><span class="annot"><span class="annottext">ExtraOp -&gt; Bool
+</span><a href="GHC.TypeLits.Extra.Solver.Unify.html#containsConstants"><span class="hs-identifier hs-var">containsConstants</span></a></span><span> </span><span class="annot"><span class="annottext">ExtraOp
+</span><a href="#local-6989586621679112064"><span class="hs-identifier hs-var">y</span></a></span><span>
+</span><span id="line-173"></span><span class="annot"><a href="GHC.TypeLits.Extra.Solver.Unify.html#containsConstants"><span class="hs-identifier hs-var">containsConstants</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><a href="GHC.TypeLits.Extra.Solver.Operations.html#Exp"><span class="hs-identifier hs-type">Exp</span></a></span><span> </span><span id="local-6989586621679112063"><span class="annot"><span class="annottext">ExtraOp
+</span><a href="#local-6989586621679112063"><span class="hs-identifier hs-var">x</span></a></span></span><span> </span><span id="local-6989586621679112062"><span class="annot"><span class="annottext">ExtraOp
+</span><a href="#local-6989586621679112062"><span class="hs-identifier hs-var">y</span></a></span></span><span class="hs-special">)</span><span>  </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">ExtraOp -&gt; Bool
+</span><a href="GHC.TypeLits.Extra.Solver.Unify.html#containsConstants"><span class="hs-identifier hs-var">containsConstants</span></a></span><span> </span><span class="annot"><span class="annottext">ExtraOp
+</span><a href="#local-6989586621679112063"><span class="hs-identifier hs-var">x</span></a></span><span> </span><span class="annot"><span class="annottext">Bool -&gt; Bool -&gt; Bool
+</span><span class="hs-operator hs-var">||</span></span><span> </span><span class="annot"><span class="annottext">ExtraOp -&gt; Bool
+</span><a href="GHC.TypeLits.Extra.Solver.Unify.html#containsConstants"><span class="hs-identifier hs-var">containsConstants</span></a></span><span> </span><span class="annot"><span class="annottext">ExtraOp
+</span><a href="#local-6989586621679112062"><span class="hs-identifier hs-var">y</span></a></span><span>
+</span><span id="line-174"></span></pre></body></html>

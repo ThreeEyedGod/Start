@@ -1,0 +1,920 @@
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd"><html xmlns="http://www.w3.org/1999/xhtml"><head><link rel="stylesheet" type="text/css" href="style.css" /><script type="text/javascript" src="highlight.js"></script></head><body><pre><span class="hs-comment">{-|
+Copyright  :  (C) 2015-2016, University of Twente
+License    :  BSD2 (see the file LICENSE)
+Maintainer :  Christiaan Baaij &lt;christiaan.baaij@gmail.com&gt;
+-}</span><span>
+</span><span id="line-6"></span><span class="hs-pragma">{-# LANGUAGE CPP             #-}</span><span>
+</span><span id="line-7"></span><span class="hs-pragma">{-# LANGUAGE LambdaCase      #-}</span><span>
+</span><span id="line-8"></span><span class="hs-pragma">{-# LANGUAGE RecordWildCards #-}</span><span>
+</span><span id="line-9"></span><span class="hs-pragma">{-# LANGUAGE PatternSynonyms #-}</span><span>
+</span><span id="line-10"></span><span>
+</span><span id="line-11"></span><span class="hs-pragma">{-# OPTIONS_HADDOCK show-extensions #-}</span><span>
+</span><span id="line-12"></span><span>
+</span><span id="line-13"></span><span class="hs-keyword">module</span><span> </span><span class="hs-identifier">GHC.TcPluginM.Extra</span><span>
+</span><span id="line-14"></span><span>  </span><span class="hs-special">(</span><span> </span><span class="annot"><span class="hs-comment">-- * Create new constraints</span></span><span>
+</span><span id="line-15"></span><span>    </span><span class="annot"><a href="GHC.TcPluginM.Extra.html#newWanted"><span class="hs-identifier">newWanted</span></a></span><span>
+</span><span id="line-16"></span><span>  </span><span class="hs-special">,</span><span> </span><span class="annot"><a href="GHC.TcPluginM.Extra.html#newGiven"><span class="hs-identifier">newGiven</span></a></span><span>
+</span><span id="line-17"></span><span>  </span><span class="hs-special">,</span><span> </span><span class="annot"><a href="GHC.TcPluginM.Extra.html#newDerived"><span class="hs-identifier">newDerived</span></a></span><span class="hs-cpp">
+#if __GLASGOW_HASKELL__ &lt; 711
+</span><span>  </span><span class="hs-special">,</span><span> </span><span class="hs-identifier">newWantedWithProvenance</span><span class="hs-cpp">
+#endif
+</span><span>    </span><span class="annot"><span class="hs-comment">-- * Creating evidence</span></span><span>
+</span><span id="line-22"></span><span>  </span><span class="hs-special">,</span><span> </span><span class="annot"><a href="GHC.TcPluginM.Extra.html#evByFiat"><span class="hs-identifier">evByFiat</span></a></span><span class="hs-cpp">
+#if __GLASGOW_HASKELL__ &lt; 711
+</span><span>    </span><span class="hs-comment">-- * Report contractions</span><span>
+</span><span id="line-25"></span><span>  </span><span class="hs-special">,</span><span> </span><span class="hs-identifier">failWithProvenace</span><span class="hs-cpp">
+#endif
+</span><span>    </span><span class="annot"><span class="hs-comment">-- * Lookup</span></span><span>
+</span><span id="line-28"></span><span>  </span><span class="hs-special">,</span><span> </span><span class="annot"><a href="GHC.TcPluginM.Extra.html#lookupModule"><span class="hs-identifier">lookupModule</span></a></span><span>
+</span><span id="line-29"></span><span>  </span><span class="hs-special">,</span><span> </span><span class="annot"><a href="GHC.TcPluginM.Extra.html#lookupName"><span class="hs-identifier">lookupName</span></a></span><span>
+</span><span id="line-30"></span><span>    </span><span class="annot"><span class="hs-comment">-- * Trace state of the plugin</span></span><span>
+</span><span id="line-31"></span><span>  </span><span class="hs-special">,</span><span> </span><span class="annot"><a href="GHC.TcPluginM.Extra.html#tracePlugin"><span class="hs-identifier">tracePlugin</span></a></span><span>
+</span><span id="line-32"></span><span>    </span><span class="annot"><span class="hs-comment">-- * Substitutions</span></span><span>
+</span><span id="line-33"></span><span>  </span><span class="hs-special">,</span><span> </span><span class="annot"><a href="GHC.TcPluginM.Extra.html#flattenGivens"><span class="hs-identifier">flattenGivens</span></a></span><span>
+</span><span id="line-34"></span><span>  </span><span class="hs-special">,</span><span> </span><span class="annot"><a href="GHC.TcPluginM.Extra.html#mkSubst"><span class="hs-identifier">mkSubst</span></a></span><span>
+</span><span id="line-35"></span><span>  </span><span class="hs-special">,</span><span> </span><span class="annot"><a href="GHC.TcPluginM.Extra.html#mkSubst%27"><span class="hs-identifier">mkSubst'</span></a></span><span>
+</span><span id="line-36"></span><span>  </span><span class="hs-special">,</span><span> </span><span class="annot"><a href="GHC.TcPluginM.Extra.html#substType"><span class="hs-identifier">substType</span></a></span><span>
+</span><span id="line-37"></span><span>  </span><span class="hs-special">,</span><span> </span><span class="annot"><a href="GHC.TcPluginM.Extra.html#substCt"><span class="hs-identifier">substCt</span></a></span><span>
+</span><span id="line-38"></span><span>  </span><span class="hs-special">)</span><span>
+</span><span id="line-39"></span><span class="hs-keyword">where</span><span>
+</span><span id="line-40"></span><span>
+</span><span id="line-41"></span><span class="hs-comment">-- External</span><span class="hs-cpp">
+#if __GLASGOW_HASKELL__ &lt; 711
+</span><span class="hs-keyword">import</span><span> </span><span class="hs-identifier">Data.Maybe</span><span> </span><span class="hs-special">(</span><span class="hs-identifier">mapMaybe</span><span class="hs-special">)</span><span class="hs-cpp">
+#endif
+</span><span>
+</span><span id="line-46"></span><span class="hs-comment">-- GHC API</span><span class="hs-cpp">
+#if __GLASGOW_HASKELL__ &lt; 711
+</span><span class="hs-keyword">import</span><span> </span><span class="hs-identifier">BasicTypes</span><span> </span><span class="hs-special">(</span><span class="hs-identifier">TopLevelFlag</span><span> </span><span class="hs-special">(</span><span class="hs-glyph">..</span><span class="hs-special">)</span><span class="hs-special">)</span><span class="hs-cpp">
+#endif
+</span><span class="hs-cpp">#if MIN_VERSION_ghc(8,5,0)
+</span><span class="hs-keyword">import</span><span> </span><span class="annot"><span class="hs-identifier">CoreSyn</span></span><span>    </span><span class="hs-special">(</span><span class="annot"><span class="hs-identifier">Expr</span></span><span class="hs-special">(</span><span class="hs-glyph">..</span><span class="hs-special">)</span><span class="hs-special">)</span><span class="hs-cpp">
+#endif
+</span><span class="hs-keyword">import</span><span> </span><span class="annot"><span class="hs-identifier">Coercion</span></span><span>   </span><span class="hs-special">(</span><span class="annot"><span class="hs-identifier">Role</span></span><span> </span><span class="hs-special">(</span><span class="hs-glyph">..</span><span class="hs-special">)</span><span class="hs-special">,</span><span> </span><span class="annot"><span class="hs-identifier">mkUnivCo</span></span><span class="hs-special">)</span><span>
+</span><span id="line-54"></span><span class="hs-keyword">import</span><span> </span><span class="annot"><span class="hs-identifier">FastString</span></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="hs-identifier">FastString</span></span><span class="hs-special">,</span><span> </span><span class="annot"><span class="hs-identifier">fsLit</span></span><span class="hs-special">)</span><span>
+</span><span id="line-55"></span><span class="hs-keyword">import</span><span> </span><span class="annot"><span class="hs-identifier">Module</span></span><span>     </span><span class="hs-special">(</span><span class="annot"><span class="hs-identifier">Module</span></span><span class="hs-special">,</span><span> </span><span class="annot"><span class="hs-identifier">ModuleName</span></span><span class="hs-special">)</span><span>
+</span><span id="line-56"></span><span class="hs-keyword">import</span><span> </span><span class="annot"><span class="hs-identifier">Name</span></span><span>       </span><span class="hs-special">(</span><span class="annot"><span class="hs-identifier">Name</span></span><span class="hs-special">)</span><span>
+</span><span id="line-57"></span><span class="hs-keyword">import</span><span> </span><span class="annot"><span class="hs-identifier">OccName</span></span><span>    </span><span class="hs-special">(</span><span class="annot"><span class="hs-identifier">OccName</span></span><span class="hs-special">)</span><span>
+</span><span id="line-58"></span><span class="hs-keyword">import</span><span> </span><span class="annot"><span class="hs-identifier">Outputable</span></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="hs-operator">($$)</span></span><span class="hs-special">,</span><span> </span><span class="annot"><span class="hs-operator">(&lt;+&gt;)</span></span><span class="hs-special">,</span><span> </span><span class="annot"><span class="hs-identifier">empty</span></span><span class="hs-special">,</span><span> </span><span class="annot"><span class="hs-identifier">ppr</span></span><span class="hs-special">,</span><span> </span><span class="annot"><span class="hs-identifier">text</span></span><span class="hs-special">)</span><span>
+</span><span id="line-59"></span><span class="hs-keyword">import</span><span> </span><span class="annot"><span class="hs-identifier">Panic</span></span><span>      </span><span class="hs-special">(</span><span class="annot"><span class="hs-identifier">panicDoc</span></span><span class="hs-special">)</span><span class="hs-cpp">
+#if __GLASGOW_HASKELL__ &gt;= 711
+</span><span class="hs-keyword">import</span><span> </span><span class="annot"><span class="hs-identifier">TcEvidence</span></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="hs-identifier">EvTerm</span></span><span> </span><span class="hs-special">(</span><span class="hs-glyph">..</span><span class="hs-special">)</span><span class="hs-special">)</span><span class="hs-cpp">
+#else
+</span><span class="hs-keyword">import</span><span> </span><span class="hs-identifier">TcEvidence</span><span> </span><span class="hs-special">(</span><span class="hs-identifier">EvTerm</span><span> </span><span class="hs-special">(</span><span class="hs-glyph">..</span><span class="hs-special">)</span><span class="hs-special">,</span><span> </span><span class="hs-identifier">TcCoercion</span><span> </span><span class="hs-special">(</span><span class="hs-glyph">..</span><span class="hs-special">)</span><span class="hs-special">)</span><span>
+</span><span id="line-64"></span><span class="hs-keyword">import</span><span> </span><span class="hs-identifier">TcMType</span><span>    </span><span class="hs-special">(</span><span class="hs-identifier">newEvVar</span><span class="hs-special">)</span><span class="hs-cpp">
+#endif
+</span><span class="hs-cpp">#if __GLASGOW_HASKELL__ &lt; 711
+</span><span class="hs-keyword">import</span><span> </span><span class="hs-identifier">TcPluginM</span><span>  </span><span class="hs-special">(</span><span class="hs-identifier">FindResult</span><span> </span><span class="hs-special">(</span><span class="hs-glyph">..</span><span class="hs-special">)</span><span class="hs-special">,</span><span> </span><span class="hs-identifier">TcPluginM</span><span class="hs-special">,</span><span> </span><span class="hs-identifier">findImportedModule</span><span class="hs-special">,</span><span> </span><span class="hs-identifier">lookupOrig</span><span class="hs-special">,</span><span>
+</span><span id="line-68"></span><span>                   </span><span class="hs-identifier">tcPluginTrace</span><span class="hs-special">,</span><span> </span><span class="hs-identifier">unsafeTcPluginTcM</span><span class="hs-special">)</span><span>
+</span><span id="line-69"></span><span class="hs-keyword">import</span><span> </span><span class="hs-identifier">TcRnTypes</span><span>  </span><span class="hs-special">(</span><span class="hs-identifier">Ct</span><span class="hs-special">,</span><span> </span><span class="hs-identifier">CtEvidence</span><span> </span><span class="hs-special">(</span><span class="hs-glyph">..</span><span class="hs-special">)</span><span class="hs-special">,</span><span> </span><span class="hs-identifier">CtLoc</span><span class="hs-special">,</span><span> </span><span class="hs-identifier">TcIdBinder</span><span> </span><span class="hs-special">(</span><span class="hs-glyph">..</span><span class="hs-special">)</span><span class="hs-special">,</span><span> </span><span class="hs-identifier">TcLclEnv</span><span> </span><span class="hs-special">(</span><span class="hs-glyph">..</span><span class="hs-special">)</span><span class="hs-special">,</span><span>
+</span><span id="line-70"></span><span>                   </span><span class="hs-identifier">TcPlugin</span><span> </span><span class="hs-special">(</span><span class="hs-glyph">..</span><span class="hs-special">)</span><span class="hs-special">,</span><span> </span><span class="hs-identifier">TcPluginResult</span><span> </span><span class="hs-special">(</span><span class="hs-glyph">..</span><span class="hs-special">)</span><span class="hs-special">,</span><span> </span><span class="hs-identifier">ctEvLoc</span><span class="hs-special">,</span><span>
+</span><span id="line-71"></span><span>                   </span><span class="hs-identifier">ctLocEnv</span><span class="hs-special">,</span><span> </span><span class="hs-identifier">setCtLocEnv</span><span class="hs-special">)</span><span class="hs-cpp">
+#else
+</span><span class="hs-keyword">import</span><span> </span><span class="annot"><span class="hs-identifier">TcPluginM</span></span><span>  </span><span class="hs-special">(</span><span class="annot"><span class="hs-identifier">FindResult</span></span><span> </span><span class="hs-special">(</span><span class="hs-glyph">..</span><span class="hs-special">)</span><span class="hs-special">,</span><span> </span><span class="annot"><span class="hs-identifier">TcPluginM</span></span><span class="hs-special">,</span><span> </span><span class="annot"><span class="hs-identifier">lookupOrig</span></span><span class="hs-special">,</span><span> </span><span class="annot"><span class="hs-identifier">tcPluginTrace</span></span><span class="hs-special">)</span><span>
+</span><span id="line-74"></span><span class="hs-keyword">import</span><span> </span><span class="hs-keyword">qualified</span><span>  </span><span class="annot"><span class="hs-identifier">TcPluginM</span></span><span>
+</span><span id="line-75"></span><span class="hs-keyword">import</span><span> </span><span class="hs-keyword">qualified</span><span>  </span><span class="annot"><span class="hs-identifier">Finder</span></span><span class="hs-cpp">
+#if __GLASGOW_HASKELL__ &lt; 809
+</span><span class="hs-keyword">import</span><span> </span><span class="hs-identifier">TcRnTypes</span><span>  </span><span class="hs-special">(</span><span class="hs-identifier">CtEvidence</span><span> </span><span class="hs-special">(</span><span class="hs-glyph">..</span><span class="hs-special">)</span><span class="hs-special">,</span><span> </span><span class="hs-identifier">CtLoc</span><span class="hs-special">,</span><span>
+</span><span id="line-78"></span><span>                   </span><span class="hs-identifier">TcPlugin</span><span> </span><span class="hs-special">(</span><span class="hs-glyph">..</span><span class="hs-special">)</span><span class="hs-special">,</span><span> </span><span class="hs-identifier">TcPluginResult</span><span> </span><span class="hs-special">(</span><span class="hs-glyph">..</span><span class="hs-special">)</span><span class="hs-special">)</span><span class="hs-cpp">
+#else
+</span><span class="hs-keyword">import</span><span> </span><span class="annot"><span class="hs-identifier">TcRnTypes</span></span><span>  </span><span class="hs-special">(</span><span class="annot"><span class="hs-identifier">TcPlugin</span></span><span> </span><span class="hs-special">(</span><span class="hs-glyph">..</span><span class="hs-special">)</span><span class="hs-special">,</span><span> </span><span class="annot"><span class="hs-identifier">TcPluginResult</span></span><span> </span><span class="hs-special">(</span><span class="hs-glyph">..</span><span class="hs-special">)</span><span class="hs-special">)</span><span class="hs-cpp">
+#endif
+</span><span class="hs-cpp">#endif
+</span><span class="hs-cpp">#if __GLASGOW_HASKELL__ &lt; 802
+</span><span class="hs-keyword">import</span><span> </span><span class="hs-identifier">TcPluginM</span><span>  </span><span class="hs-special">(</span><span class="hs-identifier">tcPluginIO</span><span class="hs-special">)</span><span class="hs-cpp">
+#endif
+</span><span class="hs-cpp">#if __GLASGOW_HASKELL__ &gt;= 711
+</span><span class="hs-keyword">import</span><span> </span><span class="annot"><span class="hs-identifier">TyCoRep</span></span><span>    </span><span class="hs-special">(</span><span class="annot"><span class="hs-identifier">UnivCoProvenance</span></span><span> </span><span class="hs-special">(</span><span class="hs-glyph">..</span><span class="hs-special">)</span><span class="hs-special">)</span><span>
+</span><span id="line-88"></span><span class="hs-keyword">import</span><span> </span><span class="annot"><span class="hs-identifier">Type</span></span><span>       </span><span class="hs-special">(</span><span class="annot"><span class="hs-identifier">PredType</span></span><span class="hs-special">,</span><span> </span><span class="annot"><span class="hs-identifier">Type</span></span><span class="hs-special">)</span><span class="hs-cpp">
+#else
+</span><span class="hs-keyword">import</span><span> </span><span class="hs-identifier">Type</span><span>       </span><span class="hs-special">(</span><span class="hs-identifier">EqRel</span><span> </span><span class="hs-special">(</span><span class="hs-glyph">..</span><span class="hs-special">)</span><span class="hs-special">,</span><span> </span><span class="hs-identifier">PredTree</span><span> </span><span class="hs-special">(</span><span class="hs-glyph">..</span><span class="hs-special">)</span><span class="hs-special">,</span><span> </span><span class="hs-identifier">PredType</span><span class="hs-special">,</span><span> </span><span class="hs-identifier">Type</span><span class="hs-special">,</span><span> </span><span class="hs-identifier">classifyPredType</span><span class="hs-special">)</span><span>
+</span><span id="line-91"></span><span class="hs-keyword">import</span><span> </span><span class="hs-identifier">Var</span><span>        </span><span class="hs-special">(</span><span class="hs-identifier">varType</span><span class="hs-special">)</span><span class="hs-cpp">
+#endif
+</span><span class="hs-keyword">import</span><span> </span><span class="annot"><span class="hs-identifier">Control.Arrow</span></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="hs-identifier">first</span></span><span class="hs-special">,</span><span> </span><span class="annot"><span class="hs-identifier">second</span></span><span class="hs-special">)</span><span>
+</span><span id="line-94"></span><span class="hs-keyword">import</span><span> </span><span class="annot"><span class="hs-identifier">Data.Function</span></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="hs-identifier">on</span></span><span class="hs-special">)</span><span>
+</span><span id="line-95"></span><span class="hs-keyword">import</span><span> </span><span class="annot"><span class="hs-identifier">Data.List</span></span><span>     </span><span class="hs-special">(</span><span class="annot"><span class="hs-identifier">groupBy</span></span><span class="hs-special">,</span><span> </span><span class="annot"><span class="hs-identifier">partition</span></span><span class="hs-special">,</span><span> </span><span class="annot"><span class="hs-identifier">sortOn</span></span><span class="hs-special">)</span><span class="hs-cpp">
+#if __GLASGOW_HASKELL__ &lt; 809
+</span><span class="hs-keyword">import</span><span> </span><span class="hs-identifier">TcRnTypes</span><span>     </span><span class="hs-special">(</span><span class="hs-identifier">Ct</span><span> </span><span class="hs-special">(</span><span class="hs-glyph">..</span><span class="hs-special">)</span><span class="hs-special">,</span><span> </span><span class="hs-identifier">ctLoc</span><span class="hs-special">,</span><span> </span><span class="hs-identifier">ctEvId</span><span class="hs-special">,</span><span> </span><span class="hs-identifier">mkNonCanonical</span><span class="hs-special">)</span><span class="hs-cpp">
+#else
+</span><span class="hs-keyword">import</span><span> </span><span class="annot"><span class="hs-identifier">Constraint</span></span><span>
+</span><span id="line-100"></span><span>  </span><span class="hs-special">(</span><span class="annot"><span class="hs-identifier">Ct</span></span><span> </span><span class="hs-special">(</span><span class="hs-glyph">..</span><span class="hs-special">)</span><span class="hs-special">,</span><span> </span><span class="annot"><span class="hs-identifier">CtEvidence</span></span><span> </span><span class="hs-special">(</span><span class="hs-glyph">..</span><span class="hs-special">)</span><span class="hs-special">,</span><span> </span><span class="annot"><span class="hs-identifier">CtLoc</span></span><span class="hs-special">,</span><span> </span><span class="annot"><span class="hs-identifier">ctLoc</span></span><span class="hs-special">,</span><span> </span><span class="annot"><span class="hs-identifier">ctEvId</span></span><span class="hs-special">,</span><span> </span><span class="annot"><span class="hs-identifier">mkNonCanonical</span></span><span class="hs-special">)</span><span class="hs-cpp">
+#endif
+</span><span class="hs-keyword">import</span><span> </span><span class="annot"><span class="hs-identifier">TcType</span></span><span>        </span><span class="hs-special">(</span><span class="annot"><span class="hs-identifier">TcTyVar</span></span><span class="hs-special">,</span><span> </span><span class="annot"><span class="hs-identifier">TcType</span></span><span class="hs-special">)</span><span class="hs-cpp">
+#if __GLASGOW_HASKELL__ &lt; 809
+</span><span class="hs-keyword">import</span><span> </span><span class="hs-identifier">Type</span><span>          </span><span class="hs-special">(</span><span class="hs-identifier">mkPrimEqPred</span><span class="hs-special">)</span><span class="hs-cpp">
+#else
+</span><span class="hs-keyword">import</span><span> </span><span class="annot"><span class="hs-identifier">Predicate</span></span><span>     </span><span class="hs-special">(</span><span class="annot"><span class="hs-identifier">mkPrimEqPred</span></span><span class="hs-special">)</span><span class="hs-cpp">
+#endif
+</span><span class="hs-cpp">#if __GLASGOW_HASKELL__ &lt; 711
+</span><span class="hs-keyword">import</span><span> </span><span class="hs-identifier">TcRnTypes</span><span>     </span><span class="hs-special">(</span><span class="hs-identifier">ctEvTerm</span><span class="hs-special">)</span><span>
+</span><span id="line-110"></span><span class="hs-keyword">import</span><span> </span><span class="hs-identifier">TypeRep</span><span>       </span><span class="hs-special">(</span><span class="hs-identifier">Type</span><span> </span><span class="hs-special">(</span><span class="hs-glyph">..</span><span class="hs-special">)</span><span class="hs-special">)</span><span class="hs-cpp">
+#else
+</span><span class="hs-keyword">import</span><span> </span><span class="annot"><span class="hs-identifier">Data.Maybe</span></span><span>    </span><span class="hs-special">(</span><span class="annot"><span class="hs-identifier">mapMaybe</span></span><span class="hs-special">)</span><span>
+</span><span id="line-113"></span><span class="hs-keyword">import</span><span> </span><span class="annot"><span class="hs-identifier">TyCoRep</span></span><span>       </span><span class="hs-special">(</span><span class="annot"><span class="hs-identifier">Type</span></span><span> </span><span class="hs-special">(</span><span class="hs-glyph">..</span><span class="hs-special">)</span><span class="hs-special">)</span><span class="hs-cpp">
+#endif
+</span><span>
+</span><span id="line-116"></span><span class="hs-comment">-- workaround for https://ghc.haskell.org/trac/ghc/ticket/10301</span><span class="hs-cpp">
+#if __GLASGOW_HASKELL__ &lt; 802
+</span><span class="hs-keyword">import</span><span> </span><span class="hs-identifier">Data.IORef</span><span>    </span><span class="hs-special">(</span><span class="hs-identifier">readIORef</span><span class="hs-special">)</span><span>
+</span><span id="line-119"></span><span class="hs-keyword">import</span><span> </span><span class="hs-identifier">Control.Monad</span><span> </span><span class="hs-special">(</span><span class="hs-identifier">unless</span><span class="hs-special">)</span><span>
+</span><span id="line-120"></span><span class="hs-keyword">import</span><span> </span><span class="hs-identifier">StaticFlags</span><span>   </span><span class="hs-special">(</span><span class="hs-identifier">initStaticOpts</span><span class="hs-special">,</span><span> </span><span class="hs-identifier">v_opt_C_ready</span><span class="hs-special">)</span><span class="hs-cpp">
+#endif
+</span><span class="hs-cpp">
+#if __GLASGOW_HASKELL__ &gt;= 711
+</span><span class="hs-keyword">pattern</span><span> </span><span class="annot"><a href="GHC.TcPluginM.Extra.html#FoundModule"><span class="hs-identifier hs-type">FoundModule</span></a></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="annot"><span class="hs-identifier hs-type">Module</span></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="hs-identifier hs-type">FindResult</span></span><span>
+</span><span id="line-125"></span><span class="hs-keyword">pattern</span><span> </span><span id="%24mFoundModule"><span id="FoundModule"><span class="annot"><span class="annottext">$mFoundModule :: forall r. FindResult -&gt; (Module -&gt; r) -&gt; (Void# -&gt; r) -&gt; r
+</span><a href="GHC.TcPluginM.Extra.html#%24mFoundModule"><span class="hs-identifier hs-var hs-var">FoundModule</span></a></span></span></span><span> </span><span class="annot"><a href="#local-6989586621679076051"><span class="hs-identifier hs-type">a</span></a></span><span> </span><span class="hs-glyph">&lt;-</span><span> </span><span class="annot"><span class="hs-identifier hs-type">Found</span></span><span> </span><span class="annot"><span class="hs-identifier">_</span></span><span> </span><span id="local-6989586621679076051"><span class="annot"><a href="#local-6989586621679076051"><span class="hs-identifier hs-var">a</span></a></span></span><span>
+</span><span id="line-126"></span><span id="local-6989586621679076049"><span class="annot"><a href="GHC.TcPluginM.Extra.html#fr_mod"><span class="hs-identifier hs-type">fr_mod</span></a></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="annot"><a href="#local-6989586621679076049"><span class="hs-identifier hs-type">a</span></a></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><a href="#local-6989586621679076049"><span class="hs-identifier hs-type">a</span></a></span></span><span>
+</span><span id="line-127"></span><span id="fr_mod"><span class="annot"><span class="annottext">fr_mod :: a -&gt; a
+</span><a href="GHC.TcPluginM.Extra.html#fr_mod"><span class="hs-identifier hs-var hs-var">fr_mod</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">a -&gt; a
+forall a. a -&gt; a
+</span><span class="hs-identifier hs-var">id</span></span><span class="hs-cpp">
+#endif
+</span><span class="hs-cpp">
+
+#if __GLASGOW_HASKELL__ &lt; 711
+</span><span class="hs-pragma">{-# DEPRECATED</span><span> </span><span class="hs-pragma">newWantedWithProvenance</span><span> </span><span class="hs-pragma">&quot;No longer available in GHC 8.0+&quot;</span><span> </span><span class="hs-pragma">#-}</span><span>
+</span><span id="line-133"></span><span class="hs-comment">-- | Create a new [W]anted constraint that remembers from which wanted</span><span>
+</span><span id="line-134"></span><span class="hs-comment">-- constraint it was derived</span><span>
+</span><span id="line-135"></span><span class="hs-identifier">newWantedWithProvenance</span><span> </span><span class="hs-glyph">::</span><span> </span><span class="hs-identifier">CtEvidence</span><span> </span><span class="hs-comment">-- ^ Constraint from which the new</span><span>
+</span><span id="line-136"></span><span>                                      </span><span class="hs-comment">-- wanted is derived</span><span>
+</span><span id="line-137"></span><span>                        </span><span class="hs-glyph">-&gt;</span><span> </span><span class="hs-identifier">PredType</span><span>   </span><span class="hs-comment">-- ^ The type of the new constraint</span><span>
+</span><span id="line-138"></span><span>                        </span><span class="hs-glyph">-&gt;</span><span> </span><span class="hs-identifier">TcPluginM</span><span> </span><span class="hs-identifier">CtEvidence</span><span>
+</span><span id="line-139"></span><span class="hs-identifier">newWantedWithProvenance</span><span> </span><span class="hs-identifier">ev</span><span class="hs-glyph">@</span><span class="hs-special">(</span><span class="hs-identifier">CtWanted</span><span> </span><span class="hs-special">{</span><span class="hs-special">}</span><span class="hs-special">)</span><span> </span><span class="hs-identifier">p</span><span> </span><span class="hs-glyph">=</span><span> </span><span class="hs-keyword">do</span><span>
+</span><span id="line-140"></span><span>  </span><span class="hs-keyword">let</span><span> </span><span class="hs-identifier">loc</span><span>    </span><span class="hs-glyph">=</span><span> </span><span class="hs-identifier">ctEvLoc</span><span> </span><span class="hs-identifier">ev</span><span>
+</span><span id="line-141"></span><span>      </span><span class="hs-identifier">env</span><span>    </span><span class="hs-glyph">=</span><span> </span><span class="hs-identifier">ctLocEnv</span><span> </span><span class="hs-identifier">loc</span><span>
+</span><span id="line-142"></span><span>      </span><span class="hs-identifier">id_</span><span>    </span><span class="hs-glyph">=</span><span> </span><span class="hs-identifier">ctEvId</span><span> </span><span class="hs-identifier">ev</span><span>
+</span><span id="line-143"></span><span>      </span><span class="hs-identifier">env'</span><span>   </span><span class="hs-glyph">=</span><span> </span><span class="hs-identifier">env</span><span> </span><span class="hs-special">{</span><span class="hs-identifier">tcl_bndrs</span><span> </span><span class="hs-glyph">=</span><span> </span><span class="hs-special">(</span><span class="hs-identifier">TcIdBndr</span><span> </span><span class="hs-identifier">id_</span><span> </span><span class="hs-identifier">NotTopLevel</span><span class="hs-special">)</span><span class="hs-glyph">:</span><span class="hs-identifier">tcl_bndrs</span><span> </span><span class="hs-identifier">env</span><span class="hs-special">}</span><span>
+</span><span id="line-144"></span><span>      </span><span class="hs-identifier">loc'</span><span>   </span><span class="hs-glyph">=</span><span> </span><span class="hs-identifier">setCtLocEnv</span><span> </span><span class="hs-identifier">loc</span><span> </span><span class="hs-identifier">env'</span><span>
+</span><span id="line-145"></span><span>  </span><span class="hs-identifier">evVar</span><span> </span><span class="hs-glyph">&lt;-</span><span> </span><span class="hs-identifier">unsafeTcPluginTcM</span><span> </span><span class="hs-operator">$</span><span> </span><span class="hs-identifier">newEvVar</span><span> </span><span class="hs-identifier">p</span><span>
+</span><span id="line-146"></span><span>  </span><span class="hs-identifier">return</span><span> </span><span class="hs-identifier">CtWanted</span><span> </span><span class="hs-special">{</span><span> </span><span class="hs-identifier">ctev_pred</span><span> </span><span class="hs-glyph">=</span><span> </span><span class="hs-identifier">p</span><span>
+</span><span id="line-147"></span><span>                  </span><span class="hs-special">,</span><span> </span><span class="hs-identifier">ctev_evar</span><span> </span><span class="hs-glyph">=</span><span> </span><span class="hs-identifier">evVar</span><span>
+</span><span id="line-148"></span><span>                  </span><span class="hs-special">,</span><span> </span><span class="hs-identifier">ctev_loc</span><span>  </span><span class="hs-glyph">=</span><span> </span><span class="hs-identifier">loc'</span><span class="hs-special">}</span><span>
+</span><span id="line-149"></span><span>
+</span><span id="line-150"></span><span class="hs-identifier">newWantedWithProvenance</span><span> </span><span class="hs-identifier">ev</span><span> </span><span class="hs-identifier">_</span><span> </span><span class="hs-glyph">=</span><span>
+</span><span id="line-151"></span><span>  </span><span class="hs-identifier">panicDoc</span><span> </span><span class="hs-string">&quot;newWantedWithProvenance: not a Wanted: &quot;</span><span> </span><span class="hs-special">(</span><span class="hs-identifier">ppr</span><span> </span><span class="hs-identifier">ev</span><span class="hs-special">)</span><span class="hs-cpp">
+#endif
+</span><span>
+</span><span id="line-154"></span><span class="hs-comment">-- | Create a new [W]anted constraint.</span><span>
+</span><span id="line-155"></span><span class="annot"><a href="GHC.TcPluginM.Extra.html#newWanted"><span class="hs-identifier hs-type">newWanted</span></a></span><span>  </span><span class="hs-glyph">::</span><span> </span><span class="annot"><span class="hs-identifier hs-type">CtLoc</span></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="hs-identifier hs-type">PredType</span></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="hs-identifier hs-type">TcPluginM</span></span><span> </span><span class="annot"><span class="hs-identifier hs-type">CtEvidence</span></span><span class="hs-cpp">
+#if __GLASGOW_HASKELL__ &gt;= 711
+</span><span id="newWanted"><span class="annot"><span class="annottext">newWanted :: CtLoc -&gt; PredType -&gt; TcPluginM CtEvidence
+</span><a href="GHC.TcPluginM.Extra.html#newWanted"><span class="hs-identifier hs-var hs-var">newWanted</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">CtLoc -&gt; PredType -&gt; TcPluginM CtEvidence
+</span><span class="hs-identifier hs-var">TcPluginM.newWanted</span></span><span class="hs-cpp">
+#else
+</span><span class="hs-identifier">newWanted</span><span> </span><span class="hs-identifier">loc</span><span> </span><span class="hs-identifier">pty</span><span> </span><span class="hs-glyph">=</span><span> </span><span class="hs-keyword">do</span><span>
+</span><span id="line-160"></span><span>    </span><span class="hs-identifier">new_ev</span><span> </span><span class="hs-glyph">&lt;-</span><span> </span><span class="hs-identifier">unsafeTcPluginTcM</span><span> </span><span class="hs-operator">$</span><span> </span><span class="hs-identifier">newEvVar</span><span> </span><span class="hs-identifier">pty</span><span>
+</span><span id="line-161"></span><span>    </span><span class="hs-identifier">return</span><span> </span><span class="hs-identifier">CtWanted</span><span> </span><span class="hs-special">{</span><span> </span><span class="hs-identifier">ctev_pred</span><span> </span><span class="hs-glyph">=</span><span> </span><span class="hs-identifier">pty</span><span>
+</span><span id="line-162"></span><span>                    </span><span class="hs-special">,</span><span> </span><span class="hs-identifier">ctev_evar</span><span> </span><span class="hs-glyph">=</span><span> </span><span class="hs-identifier">new_ev</span><span>
+</span><span id="line-163"></span><span>                    </span><span class="hs-special">,</span><span> </span><span class="hs-identifier">ctev_loc</span><span>  </span><span class="hs-glyph">=</span><span> </span><span class="hs-identifier">loc</span><span>
+</span><span id="line-164"></span><span>                    </span><span class="hs-special">}</span><span class="hs-cpp">
+#endif
+</span><span>
+</span><span id="line-167"></span><span class="hs-comment">-- | Create a new [G]iven constraint, with the supplied evidence. This must not</span><span>
+</span><span id="line-168"></span><span class="hs-comment">-- be invoked from 'tcPluginInit' or 'tcPluginStop', or it will panic.</span><span>
+</span><span id="line-169"></span><span class="annot"><a href="GHC.TcPluginM.Extra.html#newGiven"><span class="hs-identifier hs-type">newGiven</span></a></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="annot"><span class="hs-identifier hs-type">CtLoc</span></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="hs-identifier hs-type">PredType</span></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="hs-identifier hs-type">EvTerm</span></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="hs-identifier hs-type">TcPluginM</span></span><span> </span><span class="annot"><span class="hs-identifier hs-type">CtEvidence</span></span><span class="hs-cpp">
+#if MIN_VERSION_ghc(8,5,0)
+</span><span id="newGiven"><span class="annot"><span class="annottext">newGiven :: CtLoc -&gt; PredType -&gt; EvTerm -&gt; TcPluginM CtEvidence
+</span><a href="GHC.TcPluginM.Extra.html#newGiven"><span class="hs-identifier hs-var hs-var">newGiven</span></a></span></span><span> </span><span id="local-6989586621679076045"><span class="annot"><span class="annottext">CtLoc
+</span><a href="#local-6989586621679076045"><span class="hs-identifier hs-var">loc</span></a></span></span><span> </span><span id="local-6989586621679076044"><span class="annot"><span class="annottext">PredType
+</span><a href="#local-6989586621679076044"><span class="hs-identifier hs-var">pty</span></a></span></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="hs-identifier hs-type">EvExpr</span></span><span> </span><span id="local-6989586621679076042"><span class="annot"><span class="annottext">EvExpr
+</span><a href="#local-6989586621679076042"><span class="hs-identifier hs-var">ev</span></a></span></span><span class="hs-special">)</span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">CtLoc -&gt; PredType -&gt; EvExpr -&gt; TcPluginM CtEvidence
+</span><span class="hs-identifier hs-var">TcPluginM.newGiven</span></span><span> </span><span class="annot"><span class="annottext">CtLoc
+</span><a href="#local-6989586621679076045"><span class="hs-identifier hs-var">loc</span></a></span><span> </span><span class="annot"><span class="annottext">PredType
+</span><a href="#local-6989586621679076044"><span class="hs-identifier hs-var">pty</span></a></span><span> </span><span class="annot"><span class="annottext">EvExpr
+</span><a href="#local-6989586621679076042"><span class="hs-identifier hs-var">ev</span></a></span><span>
+</span><span id="line-172"></span><span class="annot"><a href="GHC.TcPluginM.Extra.html#newGiven"><span class="hs-identifier hs-var">newGiven</span></a></span><span> </span><span class="annot"><span class="annottext">CtLoc
+</span><span class="hs-identifier">_</span></span><span> </span><span class="annot"><span class="annottext">PredType
+</span><span class="hs-identifier">_</span></span><span>  </span><span id="local-6989586621679076040"><span class="annot"><span class="annottext">EvTerm
+</span><a href="#local-6989586621679076040"><span class="hs-identifier hs-var">ev</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">String -&gt; SDoc -&gt; TcPluginM CtEvidence
+forall a. String -&gt; SDoc -&gt; a
+</span><span class="hs-identifier hs-var">panicDoc</span></span><span> </span><span class="annot"><span class="annottext">String
+</span><span class="hs-string">&quot;newGiven: not an EvExpr: &quot;</span></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">EvTerm -&gt; SDoc
+forall a. Outputable a =&gt; a -&gt; SDoc
+</span><span class="hs-identifier hs-var">ppr</span></span><span> </span><span class="annot"><span class="annottext">EvTerm
+</span><a href="#local-6989586621679076040"><span class="hs-identifier hs-var">ev</span></a></span><span class="hs-special">)</span><span class="hs-cpp">
+#elif __GLASGOW_HASKELL__ &gt;= 711
+</span><span class="hs-identifier">newGiven</span><span> </span><span class="hs-glyph">=</span><span> </span><span class="hs-identifier">TcPluginM.newGiven</span><span class="hs-cpp">
+#else
+</span><span class="hs-identifier">newGiven</span><span> </span><span class="hs-identifier">loc</span><span> </span><span class="hs-identifier">pty</span><span> </span><span class="hs-identifier">evtm</span><span> </span><span class="hs-glyph">=</span><span> </span><span class="hs-identifier">return</span><span>
+</span><span id="line-177"></span><span>  </span><span class="hs-identifier">CtGiven</span><span> </span><span class="hs-special">{</span><span> </span><span class="hs-identifier">ctev_pred</span><span> </span><span class="hs-glyph">=</span><span> </span><span class="hs-identifier">pty</span><span>
+</span><span id="line-178"></span><span>          </span><span class="hs-special">,</span><span> </span><span class="hs-identifier">ctev_evtm</span><span> </span><span class="hs-glyph">=</span><span> </span><span class="hs-identifier">evtm</span><span>
+</span><span id="line-179"></span><span>          </span><span class="hs-special">,</span><span> </span><span class="hs-identifier">ctev_loc</span><span>  </span><span class="hs-glyph">=</span><span> </span><span class="hs-identifier">loc</span><span>
+</span><span id="line-180"></span><span>          </span><span class="hs-special">}</span><span class="hs-cpp">
+#endif
+</span><span>
+</span><span id="line-183"></span><span class="hs-comment">-- | Create a new [D]erived constraint.</span><span>
+</span><span id="line-184"></span><span class="annot"><a href="GHC.TcPluginM.Extra.html#newDerived"><span class="hs-identifier hs-type">newDerived</span></a></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="annot"><span class="hs-identifier hs-type">CtLoc</span></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="hs-identifier hs-type">PredType</span></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="hs-identifier hs-type">TcPluginM</span></span><span> </span><span class="annot"><span class="hs-identifier hs-type">CtEvidence</span></span><span class="hs-cpp">
+#if __GLASGOW_HASKELL__ &gt;= 711
+</span><span id="newDerived"><span class="annot"><span class="annottext">newDerived :: CtLoc -&gt; PredType -&gt; TcPluginM CtEvidence
+</span><a href="GHC.TcPluginM.Extra.html#newDerived"><span class="hs-identifier hs-var hs-var">newDerived</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">CtLoc -&gt; PredType -&gt; TcPluginM CtEvidence
+</span><span class="hs-identifier hs-var">TcPluginM.newDerived</span></span><span class="hs-cpp">
+#else
+</span><span class="hs-identifier">newDerived</span><span> </span><span class="hs-identifier">loc</span><span> </span><span class="hs-identifier">pty</span><span> </span><span class="hs-glyph">=</span><span> </span><span class="hs-identifier">return</span><span>
+</span><span id="line-189"></span><span>  </span><span class="hs-identifier">CtDerived</span><span> </span><span class="hs-special">{</span><span> </span><span class="hs-identifier">ctev_pred</span><span> </span><span class="hs-glyph">=</span><span> </span><span class="hs-identifier">pty</span><span>
+</span><span id="line-190"></span><span>            </span><span class="hs-special">,</span><span> </span><span class="hs-identifier">ctev_loc</span><span>  </span><span class="hs-glyph">=</span><span> </span><span class="hs-identifier">loc</span><span>
+</span><span id="line-191"></span><span>            </span><span class="hs-special">}</span><span class="hs-cpp">
+#endif
+</span><span>
+</span><span id="line-194"></span><span class="hs-comment">-- | The 'EvTerm' equivalent for 'Unsafe.unsafeCoerce'</span><span>
+</span><span id="line-195"></span><span class="annot"><a href="GHC.TcPluginM.Extra.html#evByFiat"><span class="hs-identifier hs-type">evByFiat</span></a></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="annot"><span class="hs-identifier hs-type">String</span></span><span> </span><span class="hs-comment">-- ^ Name the coercion should have</span><span>
+</span><span id="line-196"></span><span>         </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="hs-identifier hs-type">Type</span></span><span>   </span><span class="hs-comment">-- ^ The LHS of the equivalence relation (~)</span><span>
+</span><span id="line-197"></span><span>         </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="hs-identifier hs-type">Type</span></span><span>   </span><span class="hs-comment">-- ^ The RHS of the equivalence relation (~)</span><span>
+</span><span id="line-198"></span><span>         </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="hs-identifier hs-type">EvTerm</span></span><span>
+</span><span id="line-199"></span><span id="evByFiat"><span class="annot"><span class="annottext">evByFiat :: String -&gt; PredType -&gt; PredType -&gt; EvTerm
+</span><a href="GHC.TcPluginM.Extra.html#evByFiat"><span class="hs-identifier hs-var hs-var">evByFiat</span></a></span></span><span> </span><span id="local-6989586621679076038"><span class="annot"><span class="annottext">String
+</span><a href="#local-6989586621679076038"><span class="hs-identifier hs-var">name</span></a></span></span><span> </span><span id="local-6989586621679076037"><span class="annot"><span class="annottext">PredType
+</span><a href="#local-6989586621679076037"><span class="hs-identifier hs-var">t1</span></a></span></span><span> </span><span id="local-6989586621679076036"><span class="annot"><span class="annottext">PredType
+</span><a href="#local-6989586621679076036"><span class="hs-identifier hs-var">t2</span></a></span></span><span> </span><span class="hs-glyph">=</span><span class="hs-cpp">
+#if MIN_VERSION_ghc(8,5,0)
+</span><span>                      </span><span class="annot"><span class="annottext">EvExpr -&gt; EvTerm
+</span><span class="hs-identifier hs-var">EvExpr</span></span><span>
+</span><span id="line-202"></span><span>                    </span><span class="annot"><span class="annottext">(EvExpr -&gt; EvTerm) -&gt; EvExpr -&gt; EvTerm
+forall a b. (a -&gt; b) -&gt; a -&gt; b
+</span><span class="hs-operator hs-var">$</span></span><span> </span><span class="annot"><span class="annottext">Coercion -&gt; EvExpr
+forall b. Coercion -&gt; Expr b
+</span><span class="hs-identifier hs-var">Coercion</span></span><span class="hs-cpp">
+#else
+</span><span>                      </span><span class="hs-identifier">EvCoercion</span><span class="hs-cpp">
+#if __GLASGOW_HASKELL__ &lt; 711
+</span><span>                    </span><span class="hs-operator">$</span><span> </span><span class="hs-identifier">TcCoercion</span><span class="hs-cpp">
+#endif
+</span><span class="hs-cpp">#endif
+</span><span>                    </span><span class="annot"><span class="annottext">(Coercion -&gt; EvExpr) -&gt; Coercion -&gt; EvExpr
+forall a b. (a -&gt; b) -&gt; a -&gt; b
+</span><span class="hs-operator hs-var">$</span></span><span> </span><span class="annot"><span class="annottext">UnivCoProvenance -&gt; Role -&gt; PredType -&gt; PredType -&gt; Coercion
+</span><span class="hs-identifier hs-var">mkUnivCo</span></span><span class="hs-cpp">
+#if __GLASGOW_HASKELL__ &gt;= 711
+</span><span>                        </span><span class="hs-special">(</span><span class="annot"><span class="annottext">String -&gt; UnivCoProvenance
+</span><span class="hs-identifier hs-var">PluginProv</span></span><span> </span><span class="annot"><span class="annottext">String
+</span><a href="#local-6989586621679076038"><span class="hs-identifier hs-var">name</span></a></span><span class="hs-special">)</span><span class="hs-cpp">
+#else
+</span><span>                        </span><span class="hs-special">(</span><span class="hs-identifier">fsLit</span><span> </span><span class="hs-identifier">name</span><span class="hs-special">)</span><span class="hs-cpp">
+#endif
+</span><span>                        </span><span class="annot"><span class="annottext">Role
+</span><span class="hs-identifier hs-var">Nominal</span></span><span> </span><span class="annot"><span class="annottext">PredType
+</span><a href="#local-6989586621679076037"><span class="hs-identifier hs-var">t1</span></a></span><span> </span><span class="annot"><span class="annottext">PredType
+</span><a href="#local-6989586621679076036"><span class="hs-identifier hs-var">t2</span></a></span><span class="hs-cpp">
+
+#if __GLASGOW_HASKELL__ &lt; 711
+</span><span class="hs-pragma">{-# DEPRECATED</span><span> </span><span class="hs-pragma">failWithProvenace</span><span> </span><span class="hs-pragma">&quot;No longer available in GHC 8.0+&quot;</span><span> </span><span class="hs-pragma">#-}</span><span>
+</span><span id="line-219"></span><span class="hs-comment">-- | Mark the given constraint as insoluble.</span><span>
+</span><span id="line-220"></span><span class="hs-comment">--</span><span>
+</span><span id="line-221"></span><span class="hs-comment">-- If the [W]anted constraint was made by 'newWantedWithProvenance', it will</span><span>
+</span><span id="line-222"></span><span class="hs-comment">-- also mark the parent(s) from which the constraint was derived as insoluble.</span><span>
+</span><span id="line-223"></span><span class="hs-comment">-- Even if they were previously assumed to be solved.</span><span>
+</span><span id="line-224"></span><span class="hs-identifier">failWithProvenace</span><span> </span><span class="hs-glyph">::</span><span> </span><span class="hs-identifier">Ct</span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="hs-identifier">TcPluginM</span><span> </span><span class="hs-identifier">TcPluginResult</span><span>
+</span><span id="line-225"></span><span class="hs-identifier">failWithProvenace</span><span> </span><span class="hs-identifier">ct</span><span> </span><span class="hs-glyph">=</span><span> </span><span class="hs-identifier">return</span><span> </span><span class="hs-special">(</span><span class="hs-identifier">TcPluginContradiction</span><span> </span><span class="hs-special">(</span><span class="hs-identifier">ct</span><span> </span><span class="hs-glyph">:</span><span> </span><span class="hs-identifier">parents</span><span class="hs-special">)</span><span class="hs-special">)</span><span>
+</span><span id="line-226"></span><span>  </span><span class="hs-keyword">where</span><span>
+</span><span id="line-227"></span><span>    </span><span class="hs-identifier">loc</span><span>      </span><span class="hs-glyph">=</span><span> </span><span class="hs-identifier">ctLoc</span><span> </span><span class="hs-identifier">ct</span><span>
+</span><span id="line-228"></span><span>    </span><span class="hs-identifier">lclbndrs</span><span> </span><span class="hs-glyph">=</span><span> </span><span class="hs-identifier">mapMaybe</span><span> </span><span class="hs-special">(</span><span class="hs-glyph">\</span><span class="hs-glyph">case</span><span> </span><span class="hs-special">{</span><span class="hs-identifier">TcIdBndr</span><span> </span><span class="hs-identifier">id_</span><span> </span><span class="hs-identifier">NotTopLevel</span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="hs-identifier">Just</span><span> </span><span class="hs-identifier">id_</span><span>
+</span><span id="line-229"></span><span>                               </span><span class="hs-special">;</span><span class="hs-identifier">_</span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="hs-identifier">Nothing</span><span> </span><span class="hs-special">}</span><span class="hs-special">)</span><span>
+</span><span id="line-230"></span><span>             </span><span class="hs-operator">$</span><span> </span><span class="hs-identifier">tcl_bndrs</span><span> </span><span class="hs-special">(</span><span class="hs-identifier">ctLocEnv</span><span> </span><span class="hs-identifier">loc</span><span class="hs-special">)</span><span>
+</span><span id="line-231"></span><span>    </span><span class="hs-identifier">eqBndrs</span><span> </span><span class="hs-glyph">=</span><span> </span><span class="hs-identifier">filter</span><span> </span><span class="hs-special">(</span><span class="hs-special">(</span><span class="hs-glyph">\</span><span class="hs-identifier">x</span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="hs-keyword">case</span><span> </span><span class="hs-identifier">x</span><span> </span><span class="hs-keyword">of</span><span> </span><span class="hs-special">{</span><span> </span><span class="hs-identifier">EqPred</span><span> </span><span class="hs-identifier">NomEq</span><span> </span><span class="hs-identifier">_</span><span> </span><span class="hs-identifier">_</span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="hs-identifier">True</span><span>
+</span><span id="line-232"></span><span>                                       </span><span class="hs-special">;</span><span> </span><span class="hs-identifier">_</span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="hs-identifier">False</span><span> </span><span class="hs-special">}</span><span class="hs-special">)</span><span>
+</span><span id="line-233"></span><span>                      </span><span class="hs-operator">.</span><span> </span><span class="hs-identifier">classifyPredType</span><span> </span><span class="hs-operator">.</span><span> </span><span class="hs-identifier">snd</span><span class="hs-special">)</span><span>
+</span><span id="line-234"></span><span>            </span><span class="hs-operator">$</span><span> </span><span class="hs-identifier">map</span><span> </span><span class="hs-special">(</span><span class="hs-glyph">\</span><span class="hs-identifier">ev</span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="hs-special">(</span><span class="hs-identifier">ev</span><span class="hs-special">,</span><span class="hs-identifier">varType</span><span> </span><span class="hs-identifier">ev</span><span class="hs-special">)</span><span class="hs-special">)</span><span> </span><span class="hs-identifier">lclbndrs</span><span>
+</span><span id="line-235"></span><span>    </span><span class="hs-identifier">parents</span><span> </span><span class="hs-glyph">=</span><span> </span><span class="hs-identifier">map</span><span> </span><span class="hs-special">(</span><span class="hs-glyph">\</span><span class="hs-special">(</span><span class="hs-identifier">id_</span><span class="hs-special">,</span><span class="hs-identifier">p</span><span class="hs-special">)</span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="hs-identifier">mkNonCanonical</span><span> </span><span class="hs-operator">$</span><span> </span><span class="hs-identifier">CtWanted</span><span> </span><span class="hs-identifier">p</span><span> </span><span class="hs-identifier">id_</span><span> </span><span class="hs-identifier">loc</span><span class="hs-special">)</span><span> </span><span class="hs-identifier">eqBndrs</span><span class="hs-cpp">
+#endif
+</span><span>
+</span><span id="line-238"></span><span class="hs-comment">-- | Find a module</span><span>
+</span><span id="line-239"></span><span class="annot"><a href="GHC.TcPluginM.Extra.html#lookupModule"><span class="hs-identifier hs-type">lookupModule</span></a></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="annot"><span class="hs-identifier hs-type">ModuleName</span></span><span> </span><span class="hs-comment">-- ^ Name of the module</span><span>
+</span><span id="line-240"></span><span>             </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="hs-identifier hs-type">FastString</span></span><span> </span><span class="hs-comment">-- ^ Name of the package containing the module.</span><span>
+</span><span id="line-241"></span><span>                           </span><span class="hs-comment">-- NOTE: This value is ignored on ghc&gt;=8.0.</span><span>
+</span><span id="line-242"></span><span>             </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="hs-identifier hs-type">TcPluginM</span></span><span> </span><span class="annot"><span class="hs-identifier hs-type">Module</span></span><span>
+</span><span id="line-243"></span><span id="lookupModule"><span class="annot"><span class="annottext">lookupModule :: ModuleName -&gt; FastString -&gt; TcPluginM Module
+</span><a href="GHC.TcPluginM.Extra.html#lookupModule"><span class="hs-identifier hs-var hs-var">lookupModule</span></a></span></span><span> </span><span id="local-6989586621679076032"><span class="annot"><span class="annottext">ModuleName
+</span><a href="#local-6989586621679076032"><span class="hs-identifier hs-var">mod_nm</span></a></span></span><span> </span><span id="local-6989586621679076031"><span class="annot"><span class="annottext">FastString
+</span><a href="#local-6989586621679076031"><span class="hs-identifier hs-var">_pkg</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="hs-keyword">do</span><span class="hs-cpp">
+#if __GLASGOW_HASKELL__ &gt;= 711
+</span><span>  </span><span id="local-6989586621679076030"><span class="annot"><span class="annottext">HscEnv
+</span><a href="#local-6989586621679076030"><span class="hs-identifier hs-var">hsc_env</span></a></span></span><span> </span><span class="hs-glyph">&lt;-</span><span> </span><span class="annot"><span class="annottext">TcPluginM HscEnv
+</span><span class="hs-identifier hs-var">TcPluginM.getTopEnv</span></span><span>
+</span><span id="line-246"></span><span>  </span><span id="local-6989586621679076028"><span class="annot"><span class="annottext">FindResult
+</span><a href="#local-6989586621679076028"><span class="hs-identifier hs-var">found_module</span></a></span></span><span> </span><span class="hs-glyph">&lt;-</span><span> </span><span class="annot"><span class="annottext">IO FindResult -&gt; TcPluginM FindResult
+forall a. IO a -&gt; TcPluginM a
+</span><span class="hs-identifier hs-var">TcPluginM.tcPluginIO</span></span><span> </span><span class="annot"><span class="annottext">(IO FindResult -&gt; TcPluginM FindResult)
+-&gt; IO FindResult -&gt; TcPluginM FindResult
+forall a b. (a -&gt; b) -&gt; a -&gt; b
+</span><span class="hs-operator hs-var">$</span></span><span> </span><span class="annot"><span class="annottext">HscEnv -&gt; ModuleName -&gt; IO FindResult
+</span><span class="hs-identifier hs-var">Finder.findPluginModule</span></span><span> </span><span class="annot"><span class="annottext">HscEnv
+</span><a href="#local-6989586621679076030"><span class="hs-identifier hs-var">hsc_env</span></a></span><span> </span><span class="annot"><span class="annottext">ModuleName
+</span><a href="#local-6989586621679076032"><span class="hs-identifier hs-var">mod_nm</span></a></span><span class="hs-cpp">
+#else
+</span><span>  </span><span class="hs-identifier">found_module</span><span> </span><span class="hs-glyph">&lt;-</span><span> </span><span class="hs-identifier">findImportedModule</span><span> </span><span class="hs-identifier">mod_nm</span><span> </span><span class="hs-operator">$</span><span> </span><span class="hs-identifier">Just</span><span> </span><span class="hs-identifier">_pkg</span><span class="hs-cpp">
+#endif
+</span><span>  </span><span class="hs-keyword">case</span><span> </span><span class="annot"><span class="annottext">FindResult
+</span><a href="#local-6989586621679076028"><span class="hs-identifier hs-var">found_module</span></a></span><span> </span><span class="hs-keyword">of</span><span class="hs-cpp">
+#if __GLASGOW_HASKELL__ &gt;= 711
+</span><span>    </span><span class="annot"><a href="GHC.TcPluginM.Extra.html#FoundModule"><span class="hs-identifier hs-type">FoundModule</span></a></span><span> </span><span id="local-6989586621679076025"><span class="annot"><span class="annottext">Module
+</span><a href="#local-6989586621679076025"><span class="hs-identifier hs-var">h</span></a></span></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="annottext">Module -&gt; TcPluginM Module
+forall (m :: * -&gt; *) a. Monad m =&gt; a -&gt; m a
+</span><span class="hs-identifier hs-var">return</span></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">Module -&gt; Module
+forall a. a -&gt; a
+</span><a href="GHC.TcPluginM.Extra.html#fr_mod"><span class="hs-identifier hs-var">fr_mod</span></a></span><span> </span><span class="annot"><span class="annottext">Module
+</span><a href="#local-6989586621679076025"><span class="hs-identifier hs-var">h</span></a></span><span class="hs-special">)</span><span class="hs-cpp">
+#else
+</span><span>    </span><span class="hs-identifier">Found</span><span> </span><span class="hs-identifier">_</span><span> </span><span class="hs-identifier">md</span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="hs-identifier">return</span><span> </span><span class="hs-identifier">md</span><span class="hs-cpp">
+#endif
+</span><span>    </span><span class="annot"><span class="annottext">FindResult
+</span><span class="hs-identifier">_</span></span><span>          </span><span class="hs-glyph">-&gt;</span><span> </span><span class="hs-keyword">do</span><span>
+</span><span id="line-257"></span><span>      </span><span id="local-6989586621679076024"><span class="annot"><span class="annottext">FindResult
+</span><a href="#local-6989586621679076024"><span class="hs-identifier hs-var">found_module'</span></a></span></span><span> </span><span class="hs-glyph">&lt;-</span><span> </span><span class="annot"><span class="annottext">ModuleName -&gt; Maybe FastString -&gt; TcPluginM FindResult
+</span><span class="hs-identifier hs-var">TcPluginM.findImportedModule</span></span><span> </span><span class="annot"><span class="annottext">ModuleName
+</span><a href="#local-6989586621679076032"><span class="hs-identifier hs-var">mod_nm</span></a></span><span> </span><span class="annot"><span class="annottext">(Maybe FastString -&gt; TcPluginM FindResult)
+-&gt; Maybe FastString -&gt; TcPluginM FindResult
+forall a b. (a -&gt; b) -&gt; a -&gt; b
+</span><span class="hs-operator hs-var">$</span></span><span> </span><span class="annot"><span class="annottext">FastString -&gt; Maybe FastString
+forall a. a -&gt; Maybe a
+</span><span class="hs-identifier hs-var">Just</span></span><span> </span><span class="annot"><span class="annottext">(FastString -&gt; Maybe FastString) -&gt; FastString -&gt; Maybe FastString
+forall a b. (a -&gt; b) -&gt; a -&gt; b
+</span><span class="hs-operator hs-var">$</span></span><span> </span><span class="annot"><span class="annottext">String -&gt; FastString
+</span><span class="hs-identifier hs-var">fsLit</span></span><span> </span><span class="annot"><span class="annottext">String
+</span><span class="hs-string">&quot;this&quot;</span></span><span>
+</span><span id="line-258"></span><span>      </span><span class="hs-keyword">case</span><span> </span><span class="annot"><span class="annottext">FindResult
+</span><a href="#local-6989586621679076024"><span class="hs-identifier hs-var">found_module'</span></a></span><span> </span><span class="hs-keyword">of</span><span class="hs-cpp">
+#if __GLASGOW_HASKELL__ &gt;= 711
+</span><span>        </span><span class="annot"><a href="GHC.TcPluginM.Extra.html#FoundModule"><span class="hs-identifier hs-type">FoundModule</span></a></span><span> </span><span id="local-6989586621679076022"><span class="annot"><span class="annottext">Module
+</span><a href="#local-6989586621679076022"><span class="hs-identifier hs-var">h</span></a></span></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="annottext">Module -&gt; TcPluginM Module
+forall (m :: * -&gt; *) a. Monad m =&gt; a -&gt; m a
+</span><span class="hs-identifier hs-var">return</span></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">Module -&gt; Module
+forall a. a -&gt; a
+</span><a href="GHC.TcPluginM.Extra.html#fr_mod"><span class="hs-identifier hs-var">fr_mod</span></a></span><span> </span><span class="annot"><span class="annottext">Module
+</span><a href="#local-6989586621679076022"><span class="hs-identifier hs-var">h</span></a></span><span class="hs-special">)</span><span class="hs-cpp">
+#else
+</span><span>        </span><span class="hs-identifier">Found</span><span> </span><span class="hs-identifier">_</span><span> </span><span class="hs-identifier">md</span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="hs-identifier">return</span><span> </span><span class="hs-identifier">md</span><span class="hs-cpp">
+#endif
+</span><span>        </span><span class="annot"><span class="annottext">FindResult
+</span><span class="hs-identifier">_</span></span><span>          </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="annottext">String -&gt; SDoc -&gt; TcPluginM Module
+forall a. String -&gt; SDoc -&gt; a
+</span><span class="hs-identifier hs-var">panicDoc</span></span><span> </span><span class="annot"><span class="annottext">String
+</span><span class="hs-string">&quot;Unable to resolve module looked up by plugin: &quot;</span></span><span>
+</span><span id="line-265"></span><span>                               </span><span class="hs-special">(</span><span class="annot"><span class="annottext">ModuleName -&gt; SDoc
+forall a. Outputable a =&gt; a -&gt; SDoc
+</span><span class="hs-identifier hs-var">ppr</span></span><span> </span><span class="annot"><span class="annottext">ModuleName
+</span><a href="#local-6989586621679076032"><span class="hs-identifier hs-var">mod_nm</span></a></span><span class="hs-special">)</span><span>
+</span><span id="line-266"></span><span>
+</span><span id="line-267"></span><span class="hs-comment">-- | Find a 'Name' in a 'Module' given an 'OccName'</span><span>
+</span><span id="line-268"></span><span class="annot"><a href="GHC.TcPluginM.Extra.html#lookupName"><span class="hs-identifier hs-type">lookupName</span></a></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="annot"><span class="hs-identifier hs-type">Module</span></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="hs-identifier hs-type">OccName</span></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="hs-identifier hs-type">TcPluginM</span></span><span> </span><span class="annot"><span class="hs-identifier hs-type">Name</span></span><span>
+</span><span id="line-269"></span><span id="lookupName"><span class="annot"><span class="annottext">lookupName :: Module -&gt; OccName -&gt; TcPluginM Name
+</span><a href="GHC.TcPluginM.Extra.html#lookupName"><span class="hs-identifier hs-var hs-var">lookupName</span></a></span></span><span> </span><span id="local-6989586621679076021"><span class="annot"><span class="annottext">Module
+</span><a href="#local-6989586621679076021"><span class="hs-identifier hs-var">md</span></a></span></span><span> </span><span id="local-6989586621679076020"><span class="annot"><span class="annottext">OccName
+</span><a href="#local-6989586621679076020"><span class="hs-identifier hs-var">occ</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">Module -&gt; OccName -&gt; TcPluginM Name
+</span><span class="hs-identifier hs-var">lookupOrig</span></span><span> </span><span class="annot"><span class="annottext">Module
+</span><a href="#local-6989586621679076021"><span class="hs-identifier hs-var">md</span></a></span><span> </span><span class="annot"><span class="annottext">OccName
+</span><a href="#local-6989586621679076020"><span class="hs-identifier hs-var">occ</span></a></span><span>
+</span><span id="line-270"></span><span>
+</span><span id="line-271"></span><span class="hs-comment">-- | Print out extra information about the initialisation, stop, and every run</span><span>
+</span><span id="line-272"></span><span class="hs-comment">-- of the plugin when @-ddump-tc-trace@ is enabled.</span><span>
+</span><span id="line-273"></span><span class="annot"><a href="GHC.TcPluginM.Extra.html#tracePlugin"><span class="hs-identifier hs-type">tracePlugin</span></a></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="annot"><span class="hs-identifier hs-type">String</span></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="hs-identifier hs-type">TcPlugin</span></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="hs-identifier hs-type">TcPlugin</span></span><span>
+</span><span id="line-274"></span><span id="tracePlugin"><span class="annot"><span class="annottext">tracePlugin :: String -&gt; TcPlugin -&gt; TcPlugin
+</span><a href="GHC.TcPluginM.Extra.html#tracePlugin"><span class="hs-identifier hs-var hs-var">tracePlugin</span></a></span></span><span> </span><span id="local-6989586621679076019"><span class="annot"><span class="annottext">String
+</span><a href="#local-6989586621679076019"><span class="hs-identifier hs-var">s</span></a></span></span><span> </span><span class="annot"><span class="hs-identifier hs-type">TcPlugin</span></span><span class="hs-special">{</span><span id="local-6989586621679076015"><span id="local-6989586621679076016"><span id="local-6989586621679076017"><span class="annot"><span class="annottext">TcPluginM s
+s -&gt; TcPluginM ()
+s -&gt; TcPluginSolver
+tcPluginInit :: ()
+tcPluginSolve :: ()
+tcPluginStop :: ()
+tcPluginStop :: s -&gt; TcPluginM ()
+tcPluginSolve :: s -&gt; TcPluginSolver
+tcPluginInit :: TcPluginM s
+</span><span class="hs-glyph hs-var hs-var hs-var hs-var hs-var hs-var">..</span></span></span></span></span><span class="hs-special">}</span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">TcPlugin :: forall s.
+TcPluginM s
+-&gt; (s -&gt; TcPluginSolver) -&gt; (s -&gt; TcPluginM ()) -&gt; TcPlugin
+</span><span class="hs-identifier hs-type">TcPlugin</span></span><span> </span><span class="hs-special">{</span><span> </span><span class="annot"><span class="annottext">tcPluginInit :: TcPluginM s
+</span><span class="hs-identifier hs-var">tcPluginInit</span></span><span>  </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">TcPluginM s
+</span><a href="#local-6989586621679076011"><span class="hs-identifier hs-var">traceInit</span></a></span><span>
+</span><span id="line-275"></span><span>                                      </span><span class="hs-special">,</span><span> </span><span class="annot"><span class="annottext">tcPluginSolve :: s -&gt; TcPluginSolver
+</span><span class="hs-identifier hs-var">tcPluginSolve</span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">s -&gt; TcPluginSolver
+</span><a href="#local-6989586621679076010"><span class="hs-identifier hs-var">traceSolve</span></a></span><span>
+</span><span id="line-276"></span><span>                                      </span><span class="hs-special">,</span><span> </span><span class="annot"><span class="annottext">tcPluginStop :: s -&gt; TcPluginM ()
+</span><span class="hs-identifier hs-var">tcPluginStop</span></span><span>  </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">s -&gt; TcPluginM ()
+</span><a href="#local-6989586621679076009"><span class="hs-identifier hs-var">traceStop</span></a></span><span>
+</span><span id="line-277"></span><span>                                      </span><span class="hs-special">}</span><span>
+</span><span id="line-278"></span><span>  </span><span class="hs-keyword">where</span><span>
+</span><span id="line-279"></span><span>    </span><span id="local-6989586621679076011"><span class="annot"><span class="annottext">traceInit :: TcPluginM s
+</span><a href="#local-6989586621679076011"><span class="hs-identifier hs-var hs-var">traceInit</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="hs-keyword">do</span><span>
+</span><span id="line-280"></span><span>      </span><span class="hs-comment">-- workaround for https://ghc.haskell.org/trac/ghc/ticket/10301</span><span>
+</span><span id="line-281"></span><span>      </span><span class="annot"><span class="annottext">TcPluginM ()
+</span><a href="GHC.TcPluginM.Extra.html#initializeStaticFlags"><span class="hs-identifier hs-var">initializeStaticFlags</span></a></span><span>
+</span><span id="line-282"></span><span>      </span><span class="annot"><span class="annottext">String -&gt; SDoc -&gt; TcPluginM ()
+</span><span class="hs-identifier hs-var">tcPluginTrace</span></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">String
+</span><span class="hs-string">&quot;tcPluginInit &quot;</span></span><span> </span><span class="annot"><span class="annottext">String -&gt; String -&gt; String
+forall a. [a] -&gt; [a] -&gt; [a]
+</span><span class="hs-operator hs-var">++</span></span><span> </span><span class="annot"><span class="annottext">String
+</span><a href="#local-6989586621679076019"><span class="hs-identifier hs-var">s</span></a></span><span class="hs-special">)</span><span> </span><span class="annot"><span class="annottext">SDoc
+</span><span class="hs-identifier hs-var">empty</span></span><span> </span><span class="annot"><span class="annottext">TcPluginM () -&gt; TcPluginM s -&gt; TcPluginM s
+forall (m :: * -&gt; *) a b. Monad m =&gt; m a -&gt; m b -&gt; m b
+</span><span class="hs-operator hs-var">&gt;&gt;</span></span><span> </span><span class="annot"><span class="annottext">TcPluginM s
+</span><a href="#local-6989586621679076017"><span class="hs-identifier hs-var">tcPluginInit</span></a></span><span>
+</span><span id="line-283"></span><span>
+</span><span id="line-284"></span><span>    </span><span id="local-6989586621679076009"><span class="annot"><span class="annottext">traceStop :: s -&gt; TcPluginM ()
+</span><a href="#local-6989586621679076009"><span class="hs-identifier hs-var hs-var">traceStop</span></a></span></span><span>  </span><span id="local-6989586621679076007"><span class="annot"><span class="annottext">s
+</span><a href="#local-6989586621679076007"><span class="hs-identifier hs-var">z</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">String -&gt; SDoc -&gt; TcPluginM ()
+</span><span class="hs-identifier hs-var">tcPluginTrace</span></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">String
+</span><span class="hs-string">&quot;tcPluginStop &quot;</span></span><span> </span><span class="annot"><span class="annottext">String -&gt; String -&gt; String
+forall a. [a] -&gt; [a] -&gt; [a]
+</span><span class="hs-operator hs-var">++</span></span><span> </span><span class="annot"><span class="annottext">String
+</span><a href="#local-6989586621679076019"><span class="hs-identifier hs-var">s</span></a></span><span class="hs-special">)</span><span> </span><span class="annot"><span class="annottext">SDoc
+</span><span class="hs-identifier hs-var">empty</span></span><span> </span><span class="annot"><span class="annottext">TcPluginM () -&gt; TcPluginM () -&gt; TcPluginM ()
+forall (m :: * -&gt; *) a b. Monad m =&gt; m a -&gt; m b -&gt; m b
+</span><span class="hs-operator hs-var">&gt;&gt;</span></span><span> </span><span class="annot"><span class="annottext">s -&gt; TcPluginM ()
+</span><a href="#local-6989586621679076015"><span class="hs-identifier hs-var">tcPluginStop</span></a></span><span> </span><span class="annot"><span class="annottext">s
+</span><a href="#local-6989586621679076007"><span class="hs-identifier hs-var">z</span></a></span><span>
+</span><span id="line-285"></span><span>
+</span><span id="line-286"></span><span>    </span><span id="local-6989586621679076010"><span class="annot"><span class="annottext">traceSolve :: s -&gt; TcPluginSolver
+</span><a href="#local-6989586621679076010"><span class="hs-identifier hs-var hs-var">traceSolve</span></a></span></span><span> </span><span id="local-6989586621679076006"><span class="annot"><span class="annottext">s
+</span><a href="#local-6989586621679076006"><span class="hs-identifier hs-var">z</span></a></span></span><span> </span><span id="local-6989586621679076005"><span class="annot"><span class="annottext">[Ct]
+</span><a href="#local-6989586621679076005"><span class="hs-identifier hs-var">given</span></a></span></span><span> </span><span id="local-6989586621679076004"><span class="annot"><span class="annottext">[Ct]
+</span><a href="#local-6989586621679076004"><span class="hs-identifier hs-var">derived</span></a></span></span><span> </span><span id="local-6989586621679076003"><span class="annot"><span class="annottext">[Ct]
+</span><a href="#local-6989586621679076003"><span class="hs-identifier hs-var">wanted</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="hs-keyword">do</span><span>
+</span><span id="line-287"></span><span>      </span><span class="annot"><span class="annottext">String -&gt; SDoc -&gt; TcPluginM ()
+</span><span class="hs-identifier hs-var">tcPluginTrace</span></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">String
+</span><span class="hs-string">&quot;tcPluginSolve start &quot;</span></span><span> </span><span class="annot"><span class="annottext">String -&gt; String -&gt; String
+forall a. [a] -&gt; [a] -&gt; [a]
+</span><span class="hs-operator hs-var">++</span></span><span> </span><span class="annot"><span class="annottext">String
+</span><a href="#local-6989586621679076019"><span class="hs-identifier hs-var">s</span></a></span><span class="hs-special">)</span><span>
+</span><span id="line-288"></span><span>                        </span><span class="hs-special">(</span><span class="annot"><span class="annottext">String -&gt; SDoc
+</span><span class="hs-identifier hs-var">text</span></span><span> </span><span class="annot"><span class="annottext">String
+</span><span class="hs-string">&quot;given   =&quot;</span></span><span> </span><span class="annot"><span class="annottext">SDoc -&gt; SDoc -&gt; SDoc
+</span><span class="hs-operator hs-var">&lt;+&gt;</span></span><span> </span><span class="annot"><span class="annottext">[Ct] -&gt; SDoc
+forall a. Outputable a =&gt; a -&gt; SDoc
+</span><span class="hs-identifier hs-var">ppr</span></span><span> </span><span class="annot"><span class="annottext">[Ct]
+</span><a href="#local-6989586621679076005"><span class="hs-identifier hs-var">given</span></a></span><span>
+</span><span id="line-289"></span><span>                      </span><span class="annot"><span class="annottext">SDoc -&gt; SDoc -&gt; SDoc
+</span><span class="hs-operator hs-var">$$</span></span><span> </span><span class="annot"><span class="annottext">String -&gt; SDoc
+</span><span class="hs-identifier hs-var">text</span></span><span> </span><span class="annot"><span class="annottext">String
+</span><span class="hs-string">&quot;derived =&quot;</span></span><span> </span><span class="annot"><span class="annottext">SDoc -&gt; SDoc -&gt; SDoc
+</span><span class="hs-operator hs-var">&lt;+&gt;</span></span><span> </span><span class="annot"><span class="annottext">[Ct] -&gt; SDoc
+forall a. Outputable a =&gt; a -&gt; SDoc
+</span><span class="hs-identifier hs-var">ppr</span></span><span> </span><span class="annot"><span class="annottext">[Ct]
+</span><a href="#local-6989586621679076004"><span class="hs-identifier hs-var">derived</span></a></span><span>
+</span><span id="line-290"></span><span>                      </span><span class="annot"><span class="annottext">SDoc -&gt; SDoc -&gt; SDoc
+</span><span class="hs-operator hs-var">$$</span></span><span> </span><span class="annot"><span class="annottext">String -&gt; SDoc
+</span><span class="hs-identifier hs-var">text</span></span><span> </span><span class="annot"><span class="annottext">String
+</span><span class="hs-string">&quot;wanted  =&quot;</span></span><span> </span><span class="annot"><span class="annottext">SDoc -&gt; SDoc -&gt; SDoc
+</span><span class="hs-operator hs-var">&lt;+&gt;</span></span><span> </span><span class="annot"><span class="annottext">[Ct] -&gt; SDoc
+forall a. Outputable a =&gt; a -&gt; SDoc
+</span><span class="hs-identifier hs-var">ppr</span></span><span> </span><span class="annot"><span class="annottext">[Ct]
+</span><a href="#local-6989586621679076003"><span class="hs-identifier hs-var">wanted</span></a></span><span class="hs-special">)</span><span>
+</span><span id="line-291"></span><span>      </span><span id="local-6989586621679076002"><span class="annot"><span class="annottext">TcPluginResult
+</span><a href="#local-6989586621679076002"><span class="hs-identifier hs-var">r</span></a></span></span><span> </span><span class="hs-glyph">&lt;-</span><span> </span><span class="annot"><span class="annottext">s -&gt; TcPluginSolver
+</span><a href="#local-6989586621679076016"><span class="hs-identifier hs-var">tcPluginSolve</span></a></span><span> </span><span class="annot"><span class="annottext">s
+</span><a href="#local-6989586621679076006"><span class="hs-identifier hs-var">z</span></a></span><span> </span><span class="annot"><span class="annottext">[Ct]
+</span><a href="#local-6989586621679076005"><span class="hs-identifier hs-var">given</span></a></span><span> </span><span class="annot"><span class="annottext">[Ct]
+</span><a href="#local-6989586621679076004"><span class="hs-identifier hs-var">derived</span></a></span><span> </span><span class="annot"><span class="annottext">[Ct]
+</span><a href="#local-6989586621679076003"><span class="hs-identifier hs-var">wanted</span></a></span><span>
+</span><span id="line-292"></span><span>      </span><span class="hs-keyword">case</span><span> </span><span class="annot"><span class="annottext">TcPluginResult
+</span><a href="#local-6989586621679076002"><span class="hs-identifier hs-var">r</span></a></span><span> </span><span class="hs-keyword">of</span><span>
+</span><span id="line-293"></span><span>        </span><span class="annot"><span class="hs-identifier hs-type">TcPluginOk</span></span><span> </span><span id="local-6989586621679076000"><span class="annot"><span class="annottext">[(EvTerm, Ct)]
+</span><a href="#local-6989586621679076000"><span class="hs-identifier hs-var">solved</span></a></span></span><span> </span><span id="local-6989586621679075999"><span class="annot"><span class="annottext">[Ct]
+</span><a href="#local-6989586621679075999"><span class="hs-identifier hs-var">new</span></a></span></span><span>     </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="annottext">String -&gt; SDoc -&gt; TcPluginM ()
+</span><span class="hs-identifier hs-var">tcPluginTrace</span></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">String
+</span><span class="hs-string">&quot;tcPluginSolve ok &quot;</span></span><span> </span><span class="annot"><span class="annottext">String -&gt; String -&gt; String
+forall a. [a] -&gt; [a] -&gt; [a]
+</span><span class="hs-operator hs-var">++</span></span><span> </span><span class="annot"><span class="annottext">String
+</span><a href="#local-6989586621679076019"><span class="hs-identifier hs-var">s</span></a></span><span class="hs-special">)</span><span>
+</span><span id="line-294"></span><span>                                         </span><span class="hs-special">(</span><span class="annot"><span class="annottext">String -&gt; SDoc
+</span><span class="hs-identifier hs-var">text</span></span><span> </span><span class="annot"><span class="annottext">String
+</span><span class="hs-string">&quot;solved =&quot;</span></span><span> </span><span class="annot"><span class="annottext">SDoc -&gt; SDoc -&gt; SDoc
+</span><span class="hs-operator hs-var">&lt;+&gt;</span></span><span> </span><span class="annot"><span class="annottext">[(EvTerm, Ct)] -&gt; SDoc
+forall a. Outputable a =&gt; a -&gt; SDoc
+</span><span class="hs-identifier hs-var">ppr</span></span><span> </span><span class="annot"><span class="annottext">[(EvTerm, Ct)]
+</span><a href="#local-6989586621679076000"><span class="hs-identifier hs-var">solved</span></a></span><span>
+</span><span id="line-295"></span><span>                                       </span><span class="annot"><span class="annottext">SDoc -&gt; SDoc -&gt; SDoc
+</span><span class="hs-operator hs-var">$$</span></span><span> </span><span class="annot"><span class="annottext">String -&gt; SDoc
+</span><span class="hs-identifier hs-var">text</span></span><span> </span><span class="annot"><span class="annottext">String
+</span><span class="hs-string">&quot;new    =&quot;</span></span><span> </span><span class="annot"><span class="annottext">SDoc -&gt; SDoc -&gt; SDoc
+</span><span class="hs-operator hs-var">&lt;+&gt;</span></span><span> </span><span class="annot"><span class="annottext">[Ct] -&gt; SDoc
+forall a. Outputable a =&gt; a -&gt; SDoc
+</span><span class="hs-identifier hs-var">ppr</span></span><span> </span><span class="annot"><span class="annottext">[Ct]
+</span><a href="#local-6989586621679075999"><span class="hs-identifier hs-var">new</span></a></span><span class="hs-special">)</span><span>
+</span><span id="line-296"></span><span>        </span><span class="annot"><span class="hs-identifier hs-type">TcPluginContradiction</span></span><span> </span><span id="local-6989586621679075997"><span class="annot"><span class="annottext">[Ct]
+</span><a href="#local-6989586621679075997"><span class="hs-identifier hs-var">bad</span></a></span></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="annottext">String -&gt; SDoc -&gt; TcPluginM ()
+</span><span class="hs-identifier hs-var">tcPluginTrace</span></span><span>
+</span><span id="line-297"></span><span>                                         </span><span class="hs-special">(</span><span class="annot"><span class="annottext">String
+</span><span class="hs-string">&quot;tcPluginSolve contradiction &quot;</span></span><span> </span><span class="annot"><span class="annottext">String -&gt; String -&gt; String
+forall a. [a] -&gt; [a] -&gt; [a]
+</span><span class="hs-operator hs-var">++</span></span><span> </span><span class="annot"><span class="annottext">String
+</span><a href="#local-6989586621679076019"><span class="hs-identifier hs-var">s</span></a></span><span class="hs-special">)</span><span>
+</span><span id="line-298"></span><span>                                         </span><span class="hs-special">(</span><span class="annot"><span class="annottext">String -&gt; SDoc
+</span><span class="hs-identifier hs-var">text</span></span><span> </span><span class="annot"><span class="annottext">String
+</span><span class="hs-string">&quot;bad =&quot;</span></span><span> </span><span class="annot"><span class="annottext">SDoc -&gt; SDoc -&gt; SDoc
+</span><span class="hs-operator hs-var">&lt;+&gt;</span></span><span> </span><span class="annot"><span class="annottext">[Ct] -&gt; SDoc
+forall a. Outputable a =&gt; a -&gt; SDoc
+</span><span class="hs-identifier hs-var">ppr</span></span><span> </span><span class="annot"><span class="annottext">[Ct]
+</span><a href="#local-6989586621679075997"><span class="hs-identifier hs-var">bad</span></a></span><span class="hs-special">)</span><span>
+</span><span id="line-299"></span><span>      </span><span class="annot"><span class="annottext">TcPluginResult -&gt; TcPluginM TcPluginResult
+forall (m :: * -&gt; *) a. Monad m =&gt; a -&gt; m a
+</span><span class="hs-identifier hs-var">return</span></span><span> </span><span class="annot"><span class="annottext">TcPluginResult
+</span><a href="#local-6989586621679076002"><span class="hs-identifier hs-var">r</span></a></span><span>
+</span><span id="line-300"></span><span>
+</span><span id="line-301"></span><span class="hs-comment">-- workaround for https://ghc.haskell.org/trac/ghc/ticket/10301</span><span>
+</span><span id="line-302"></span><span class="annot"><a href="GHC.TcPluginM.Extra.html#initializeStaticFlags"><span class="hs-identifier hs-type">initializeStaticFlags</span></a></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="annot"><span class="hs-identifier hs-type">TcPluginM</span></span><span> </span><span class="hs-special">(</span><span class="hs-special">)</span><span class="hs-cpp">
+#if __GLASGOW_HASKELL__ &lt; 802
+</span><span class="hs-identifier">initializeStaticFlags</span><span> </span><span class="hs-glyph">=</span><span> </span><span class="hs-identifier">tcPluginIO</span><span> </span><span class="hs-operator">$</span><span> </span><span class="hs-keyword">do</span><span>
+</span><span id="line-305"></span><span>  </span><span class="hs-identifier">r</span><span> </span><span class="hs-glyph">&lt;-</span><span> </span><span class="hs-identifier">readIORef</span><span> </span><span class="hs-identifier">v_opt_C_ready</span><span>
+</span><span id="line-306"></span><span>  </span><span class="hs-identifier">unless</span><span> </span><span class="hs-identifier">r</span><span> </span><span class="hs-identifier">initStaticOpts</span><span class="hs-cpp">
+#else
+</span><span id="initializeStaticFlags"><span class="annot"><span class="annottext">initializeStaticFlags :: TcPluginM ()
+</span><a href="GHC.TcPluginM.Extra.html#initializeStaticFlags"><span class="hs-identifier hs-var hs-var">initializeStaticFlags</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">() -&gt; TcPluginM ()
+forall (m :: * -&gt; *) a. Monad m =&gt; a -&gt; m a
+</span><span class="hs-identifier hs-var">return</span></span><span> </span><span class="hs-special">(</span><span class="hs-special">)</span><span class="hs-cpp">
+#endif
+</span><span>
+</span><span id="line-311"></span><span class="hs-comment">-- | Flattens evidence of constraints by substituting each others equalities.</span><span>
+</span><span id="line-312"></span><span class="hs-comment">--</span><span>
+</span><span id="line-313"></span><span class="hs-comment">-- __NB:__ Should only be used on /[G]iven/ constraints!</span><span>
+</span><span id="line-314"></span><span class="hs-comment">--</span><span>
+</span><span id="line-315"></span><span class="hs-comment">-- __NB:__ Doesn't flatten under binders</span><span>
+</span><span id="line-316"></span><span class="annot"><a href="GHC.TcPluginM.Extra.html#flattenGivens"><span class="hs-identifier hs-type">flattenGivens</span></a></span><span>
+</span><span id="line-317"></span><span>  </span><span class="hs-glyph">::</span><span> </span><span class="hs-special">[</span><span class="annot"><span class="hs-identifier hs-type">Ct</span></span><span class="hs-special">]</span><span>
+</span><span id="line-318"></span><span>  </span><span class="hs-glyph">-&gt;</span><span> </span><span class="hs-special">[</span><span class="annot"><span class="hs-identifier hs-type">Ct</span></span><span class="hs-special">]</span><span>
+</span><span id="line-319"></span><span id="flattenGivens"><span class="annot"><span class="annottext">flattenGivens :: [Ct] -&gt; [Ct]
+</span><a href="GHC.TcPluginM.Extra.html#flattenGivens"><span class="hs-identifier hs-var hs-var">flattenGivens</span></a></span></span><span> </span><span id="local-6989586621679075996"><span class="annot"><span class="annottext">[Ct]
+</span><a href="#local-6989586621679075996"><span class="hs-identifier hs-var">givens</span></a></span></span><span> </span><span class="hs-glyph">=</span><span>
+</span><span id="line-320"></span><span>  </span><span class="annot"><span class="annottext">([((TcTyVar, PredType), Ct)] -&gt; Maybe Ct)
+-&gt; [[((TcTyVar, PredType), Ct)]] -&gt; [Ct]
+forall a b. (a -&gt; Maybe b) -&gt; [a] -&gt; [b]
+</span><span class="hs-identifier hs-var">mapMaybe</span></span><span> </span><span class="annot"><span class="annottext">[((TcTyVar, PredType), Ct)] -&gt; Maybe Ct
+</span><a href="#local-6989586621679075995"><span class="hs-identifier hs-var">flatToCt</span></a></span><span> </span><span class="annot"><span class="annottext">[[((TcTyVar, PredType), Ct)]]
+</span><a href="#local-6989586621679075994"><span class="hs-identifier hs-var">flat</span></a></span><span> </span><span class="annot"><span class="annottext">[Ct] -&gt; [Ct] -&gt; [Ct]
+forall a. [a] -&gt; [a] -&gt; [a]
+</span><span class="hs-operator hs-var">++</span></span><span> </span><span class="annot"><span class="annottext">(Ct -&gt; Ct) -&gt; [Ct] -&gt; [Ct]
+forall a b. (a -&gt; b) -&gt; [a] -&gt; [b]
+</span><span class="hs-identifier hs-var">map</span></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">[(TcTyVar, PredType)] -&gt; Ct -&gt; Ct
+</span><a href="GHC.TcPluginM.Extra.html#substCt"><span class="hs-identifier hs-var">substCt</span></a></span><span> </span><span class="annot"><span class="annottext">[(TcTyVar, PredType)]
+</span><a href="#local-6989586621679075993"><span class="hs-identifier hs-var">subst'</span></a></span><span class="hs-special">)</span><span> </span><span class="annot"><span class="annottext">[Ct]
+</span><a href="#local-6989586621679075996"><span class="hs-identifier hs-var">givens</span></a></span><span>
+</span><span id="line-321"></span><span> </span><span class="hs-keyword">where</span><span>
+</span><span id="line-322"></span><span>  </span><span id="local-6989586621679075992"><span class="annot"><span class="annottext">subst :: [((TcTyVar, PredType), Ct)]
+</span><a href="#local-6989586621679075992"><span class="hs-identifier hs-var hs-var">subst</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">[Ct] -&gt; [((TcTyVar, PredType), Ct)]
+</span><a href="GHC.TcPluginM.Extra.html#mkSubst%27"><span class="hs-identifier hs-var">mkSubst'</span></a></span><span> </span><span class="annot"><span class="annottext">[Ct]
+</span><a href="#local-6989586621679075996"><span class="hs-identifier hs-var">givens</span></a></span><span>
+</span><span id="line-323"></span><span>  </span><span class="hs-special">(</span><span id="local-6989586621679075994"><span class="annot"><span class="annottext">[[((TcTyVar, PredType), Ct)]]
+</span><a href="#local-6989586621679075994"><span class="hs-identifier hs-var">flat</span></a></span></span><span class="hs-special">,</span><span id="local-6989586621679075993"><span class="annot"><span class="annottext">[(TcTyVar, PredType)]
+</span><a href="#local-6989586621679075993"><span class="hs-identifier hs-var">subst'</span></a></span></span><span class="hs-special">)</span><span>
+</span><span id="line-324"></span><span>    </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">([[((TcTyVar, PredType), Ct)]] -&gt; [(TcTyVar, PredType)])
+-&gt; ([[((TcTyVar, PredType), Ct)]], [[((TcTyVar, PredType), Ct)]])
+-&gt; ([[((TcTyVar, PredType), Ct)]], [(TcTyVar, PredType)])
+forall (a :: * -&gt; * -&gt; *) b c d.
+Arrow a =&gt;
+a b c -&gt; a (d, b) (d, c)
+</span><span class="hs-identifier hs-var">second</span></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">(((TcTyVar, PredType), Ct) -&gt; (TcTyVar, PredType))
+-&gt; [((TcTyVar, PredType), Ct)] -&gt; [(TcTyVar, PredType)]
+forall a b. (a -&gt; b) -&gt; [a] -&gt; [b]
+</span><span class="hs-identifier hs-var">map</span></span><span> </span><span class="annot"><span class="annottext">((TcTyVar, PredType), Ct) -&gt; (TcTyVar, PredType)
+forall a b. (a, b) -&gt; a
+</span><span class="hs-identifier hs-var">fst</span></span><span> </span><span class="annot"><span class="annottext">([((TcTyVar, PredType), Ct)] -&gt; [(TcTyVar, PredType)])
+-&gt; ([[((TcTyVar, PredType), Ct)]] -&gt; [((TcTyVar, PredType), Ct)])
+-&gt; [[((TcTyVar, PredType), Ct)]]
+-&gt; [(TcTyVar, PredType)]
+forall b c a. (b -&gt; c) -&gt; (a -&gt; b) -&gt; a -&gt; c
+</span><span class="hs-operator hs-var">.</span></span><span> </span><span class="annot"><span class="annottext">[[((TcTyVar, PredType), Ct)]] -&gt; [((TcTyVar, PredType), Ct)]
+forall (t :: * -&gt; *) a. Foldable t =&gt; t [a] -&gt; [a]
+</span><span class="hs-identifier hs-var">concat</span></span><span class="hs-special">)</span><span>
+</span><span id="line-325"></span><span>    </span><span class="annot"><span class="annottext">(([[((TcTyVar, PredType), Ct)]], [[((TcTyVar, PredType), Ct)]])
+ -&gt; ([[((TcTyVar, PredType), Ct)]], [(TcTyVar, PredType)]))
+-&gt; ([[((TcTyVar, PredType), Ct)]], [[((TcTyVar, PredType), Ct)]])
+-&gt; ([[((TcTyVar, PredType), Ct)]], [(TcTyVar, PredType)])
+forall a b. (a -&gt; b) -&gt; a -&gt; b
+</span><span class="hs-operator hs-var">$</span></span><span> </span><span class="annot"><span class="annottext">([((TcTyVar, PredType), Ct)] -&gt; Bool)
+-&gt; [[((TcTyVar, PredType), Ct)]]
+-&gt; ([[((TcTyVar, PredType), Ct)]], [[((TcTyVar, PredType), Ct)]])
+forall a. (a -&gt; Bool) -&gt; [a] -&gt; ([a], [a])
+</span><span class="hs-identifier hs-var">partition</span></span><span> </span><span class="hs-special">(</span><span class="hs-special">(</span><span class="annot"><span class="annottext">Int -&gt; Int -&gt; Bool
+forall a. Ord a =&gt; a -&gt; a -&gt; Bool
+</span><span class="hs-operator hs-var">&gt;=</span></span><span> </span><span class="annot"><span class="annottext">Int
+</span><span class="hs-number">2</span></span><span class="hs-special">)</span><span> </span><span class="annot"><span class="annottext">(Int -&gt; Bool)
+-&gt; ([((TcTyVar, PredType), Ct)] -&gt; Int)
+-&gt; [((TcTyVar, PredType), Ct)]
+-&gt; Bool
+forall b c a. (b -&gt; c) -&gt; (a -&gt; b) -&gt; a -&gt; c
+</span><span class="hs-operator hs-var">.</span></span><span> </span><span class="annot"><span class="annottext">[((TcTyVar, PredType), Ct)] -&gt; Int
+forall (t :: * -&gt; *) a. Foldable t =&gt; t a -&gt; Int
+</span><span class="hs-identifier hs-var">length</span></span><span class="hs-special">)</span><span>
+</span><span id="line-326"></span><span>    </span><span class="annot"><span class="annottext">([[((TcTyVar, PredType), Ct)]]
+ -&gt; ([[((TcTyVar, PredType), Ct)]], [[((TcTyVar, PredType), Ct)]]))
+-&gt; [[((TcTyVar, PredType), Ct)]]
+-&gt; ([[((TcTyVar, PredType), Ct)]], [[((TcTyVar, PredType), Ct)]])
+forall a b. (a -&gt; b) -&gt; a -&gt; b
+</span><span class="hs-operator hs-var">$</span></span><span> </span><span class="annot"><span class="annottext">(((TcTyVar, PredType), Ct) -&gt; ((TcTyVar, PredType), Ct) -&gt; Bool)
+-&gt; [((TcTyVar, PredType), Ct)] -&gt; [[((TcTyVar, PredType), Ct)]]
+forall a. (a -&gt; a -&gt; Bool) -&gt; [a] -&gt; [[a]]
+</span><span class="hs-identifier hs-var">groupBy</span></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">TcTyVar -&gt; TcTyVar -&gt; Bool
+forall a. Eq a =&gt; a -&gt; a -&gt; Bool
+</span><span class="hs-operator hs-var">(==)</span></span><span> </span><span class="annot"><span class="annottext">(TcTyVar -&gt; TcTyVar -&gt; Bool)
+-&gt; (((TcTyVar, PredType), Ct) -&gt; TcTyVar)
+-&gt; ((TcTyVar, PredType), Ct)
+-&gt; ((TcTyVar, PredType), Ct)
+-&gt; Bool
+forall b c a. (b -&gt; b -&gt; c) -&gt; (a -&gt; b) -&gt; a -&gt; a -&gt; c
+</span><span class="hs-operator hs-var">`on`</span></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">(TcTyVar, PredType) -&gt; TcTyVar
+forall a b. (a, b) -&gt; a
+</span><span class="hs-identifier hs-var">fst</span></span><span class="annot"><span class="annottext">((TcTyVar, PredType) -&gt; TcTyVar)
+-&gt; (((TcTyVar, PredType), Ct) -&gt; (TcTyVar, PredType))
+-&gt; ((TcTyVar, PredType), Ct)
+-&gt; TcTyVar
+forall b c a. (b -&gt; c) -&gt; (a -&gt; b) -&gt; a -&gt; c
+</span><span class="hs-operator hs-var">.</span></span><span class="annot"><span class="annottext">((TcTyVar, PredType), Ct) -&gt; (TcTyVar, PredType)
+forall a b. (a, b) -&gt; a
+</span><span class="hs-identifier hs-var">fst</span></span><span class="hs-special">)</span><span class="hs-special">)</span><span>
+</span><span id="line-327"></span><span>    </span><span class="annot"><span class="annottext">([((TcTyVar, PredType), Ct)] -&gt; [[((TcTyVar, PredType), Ct)]])
+-&gt; [((TcTyVar, PredType), Ct)] -&gt; [[((TcTyVar, PredType), Ct)]]
+forall a b. (a -&gt; b) -&gt; a -&gt; b
+</span><span class="hs-operator hs-var">$</span></span><span> </span><span class="annot"><span class="annottext">(((TcTyVar, PredType), Ct) -&gt; TcTyVar)
+-&gt; [((TcTyVar, PredType), Ct)] -&gt; [((TcTyVar, PredType), Ct)]
+forall b a. Ord b =&gt; (a -&gt; b) -&gt; [a] -&gt; [a]
+</span><span class="hs-identifier hs-var">sortOn</span></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">(TcTyVar, PredType) -&gt; TcTyVar
+forall a b. (a, b) -&gt; a
+</span><span class="hs-identifier hs-var">fst</span></span><span class="annot"><span class="annottext">((TcTyVar, PredType) -&gt; TcTyVar)
+-&gt; (((TcTyVar, PredType), Ct) -&gt; (TcTyVar, PredType))
+-&gt; ((TcTyVar, PredType), Ct)
+-&gt; TcTyVar
+forall b c a. (b -&gt; c) -&gt; (a -&gt; b) -&gt; a -&gt; c
+</span><span class="hs-operator hs-var">.</span></span><span class="annot"><span class="annottext">((TcTyVar, PredType), Ct) -&gt; (TcTyVar, PredType)
+forall a b. (a, b) -&gt; a
+</span><span class="hs-identifier hs-var">fst</span></span><span class="hs-special">)</span><span> </span><span class="annot"><span class="annottext">[((TcTyVar, PredType), Ct)]
+</span><a href="#local-6989586621679075992"><span class="hs-identifier hs-var">subst</span></a></span><span>
+</span><span id="line-328"></span><span>
+</span><span id="line-329"></span><span>  </span><span class="annot"><a href="#local-6989586621679075995"><span class="hs-identifier hs-type">flatToCt</span></a></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="hs-special">[</span><span class="hs-special">(</span><span class="hs-special">(</span><span class="annot"><span class="hs-identifier hs-type">TcTyVar</span></span><span class="hs-special">,</span><span class="annot"><span class="hs-identifier hs-type">TcType</span></span><span class="hs-special">)</span><span class="hs-special">,</span><span class="annot"><span class="hs-identifier hs-type">Ct</span></span><span class="hs-special">)</span><span class="hs-special">]</span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="hs-identifier hs-type">Maybe</span></span><span> </span><span class="annot"><span class="hs-identifier hs-type">Ct</span></span><span>
+</span><span id="line-330"></span><span>  </span><span id="local-6989586621679075995"><span class="annot"><span class="annottext">flatToCt :: [((TcTyVar, PredType), Ct)] -&gt; Maybe Ct
+</span><a href="#local-6989586621679075995"><span class="hs-identifier hs-var hs-var">flatToCt</span></a></span></span><span> </span><span class="hs-special">[</span><span class="hs-special">(</span><span class="hs-special">(</span><span class="annot"><span class="annottext">TcTyVar
+</span><span class="hs-identifier">_</span></span><span class="hs-special">,</span><span id="local-6989586621679075988"><span class="annot"><span class="annottext">PredType
+</span><a href="#local-6989586621679075988"><span class="hs-identifier hs-var">lhs</span></a></span></span><span class="hs-special">)</span><span class="hs-special">,</span><span id="local-6989586621679075987"><span class="annot"><span class="annottext">Ct
+</span><a href="#local-6989586621679075987"><span class="hs-identifier hs-var">ct</span></a></span></span><span class="hs-special">)</span><span class="hs-special">,</span><span class="hs-special">(</span><span class="hs-special">(</span><span class="annot"><span class="annottext">TcTyVar
+</span><span class="hs-identifier">_</span></span><span class="hs-special">,</span><span id="local-6989586621679075986"><span class="annot"><span class="annottext">PredType
+</span><a href="#local-6989586621679075986"><span class="hs-identifier hs-var">rhs</span></a></span></span><span class="hs-special">)</span><span class="hs-special">,</span><span class="annot"><span class="annottext">Ct
+</span><span class="hs-identifier">_</span></span><span class="hs-special">)</span><span class="hs-special">]</span><span>
+</span><span id="line-331"></span><span>    </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">Ct -&gt; Maybe Ct
+forall a. a -&gt; Maybe a
+</span><span class="hs-identifier hs-var">Just</span></span><span>
+</span><span id="line-332"></span><span>    </span><span class="annot"><span class="annottext">(Ct -&gt; Maybe Ct) -&gt; Ct -&gt; Maybe Ct
+forall a b. (a -&gt; b) -&gt; a -&gt; b
+</span><span class="hs-operator hs-var">$</span></span><span> </span><span class="annot"><span class="annottext">CtEvidence -&gt; Ct
+</span><span class="hs-identifier hs-var">mkNonCanonical</span></span><span>
+</span><span id="line-333"></span><span>    </span><span class="annot"><span class="annottext">(CtEvidence -&gt; Ct) -&gt; CtEvidence -&gt; Ct
+forall a b. (a -&gt; b) -&gt; a -&gt; b
+</span><span class="hs-operator hs-var">$</span></span><span> </span><span class="annot"><span class="annottext">PredType -&gt; TcTyVar -&gt; CtLoc -&gt; CtEvidence
+</span><span class="hs-identifier hs-var">CtGiven</span></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">PredType -&gt; PredType -&gt; PredType
+</span><span class="hs-identifier hs-var">mkPrimEqPred</span></span><span> </span><span class="annot"><span class="annottext">PredType
+</span><a href="#local-6989586621679075988"><span class="hs-identifier hs-var">lhs</span></a></span><span> </span><span class="annot"><span class="annottext">PredType
+</span><a href="#local-6989586621679075986"><span class="hs-identifier hs-var">rhs</span></a></span><span class="hs-special">)</span><span class="hs-cpp">
+#if MIN_VERSION_ghc(8,4,0)
+</span><span>              </span><span class="hs-special">(</span><span class="annot"><span class="annottext">Ct -&gt; TcTyVar
+</span><span class="hs-identifier hs-var">ctEvId</span></span><span> </span><span class="annot"><span class="annottext">Ct
+</span><a href="#local-6989586621679075987"><span class="hs-identifier hs-var">ct</span></a></span><span class="hs-special">)</span><span class="hs-cpp">
+#elif MIN_VERSION_ghc(8,0,0)
+</span><span>              </span><span class="hs-special">(</span><span class="hs-identifier">ctEvId</span><span> </span><span class="hs-special">(</span><span class="hs-identifier">cc_ev</span><span> </span><span class="hs-identifier">ct</span><span class="hs-special">)</span><span class="hs-special">)</span><span class="hs-cpp">
+#else
+</span><span>              </span><span class="hs-special">(</span><span class="hs-identifier">ctEvTerm</span><span> </span><span class="hs-special">(</span><span class="hs-identifier">cc_ev</span><span> </span><span class="hs-identifier">ct</span><span class="hs-special">)</span><span class="hs-special">)</span><span class="hs-cpp">
+#endif
+</span><span>              </span><span class="hs-special">(</span><span class="annot"><span class="annottext">Ct -&gt; CtLoc
+</span><span class="hs-identifier hs-var">ctLoc</span></span><span> </span><span class="annot"><span class="annottext">Ct
+</span><a href="#local-6989586621679075987"><span class="hs-identifier hs-var">ct</span></a></span><span class="hs-special">)</span><span>
+</span><span id="line-342"></span><span>
+</span><span id="line-343"></span><span>  </span><span class="annot"><a href="#local-6989586621679075995"><span class="hs-identifier hs-var">flatToCt</span></a></span><span> </span><span class="annot"><span class="annottext">[((TcTyVar, PredType), Ct)]
+</span><span class="hs-identifier">_</span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">Maybe Ct
+forall a. Maybe a
+</span><span class="hs-identifier hs-var">Nothing</span></span><span>
+</span><span id="line-344"></span><span>
+</span><span id="line-345"></span><span>
+</span><span id="line-346"></span><span class="hs-comment">-- | Create flattened substitutions from type equalities, i.e. the substitutions</span><span>
+</span><span id="line-347"></span><span class="hs-comment">-- have been applied to each others right hand sides.</span><span>
+</span><span id="line-348"></span><span class="annot"><a href="GHC.TcPluginM.Extra.html#mkSubst%27"><span class="hs-identifier hs-type">mkSubst'</span></a></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="hs-special">[</span><span class="annot"><span class="hs-identifier hs-type">Ct</span></span><span class="hs-special">]</span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="hs-special">[</span><span class="hs-special">(</span><span class="hs-special">(</span><span class="annot"><span class="hs-identifier hs-type">TcTyVar</span></span><span class="hs-special">,</span><span class="annot"><span class="hs-identifier hs-type">TcType</span></span><span class="hs-special">)</span><span class="hs-special">,</span><span class="annot"><span class="hs-identifier hs-type">Ct</span></span><span class="hs-special">)</span><span class="hs-special">]</span><span>
+</span><span id="line-349"></span><span id="mkSubst%27"><span class="annot"><span class="annottext">mkSubst' :: [Ct] -&gt; [((TcTyVar, PredType), Ct)]
+</span><a href="GHC.TcPluginM.Extra.html#mkSubst%27"><span class="hs-identifier hs-var hs-var">mkSubst'</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">(((TcTyVar, PredType), Ct)
+ -&gt; [((TcTyVar, PredType), Ct)] -&gt; [((TcTyVar, PredType), Ct)])
+-&gt; [((TcTyVar, PredType), Ct)]
+-&gt; [((TcTyVar, PredType), Ct)]
+-&gt; [((TcTyVar, PredType), Ct)]
+forall (t :: * -&gt; *) a b.
+Foldable t =&gt;
+(a -&gt; b -&gt; b) -&gt; b -&gt; t a -&gt; b
+</span><span class="hs-identifier hs-var">foldr</span></span><span> </span><span class="annot"><span class="annottext">((TcTyVar, PredType), Ct)
+-&gt; [((TcTyVar, PredType), Ct)] -&gt; [((TcTyVar, PredType), Ct)]
+</span><a href="#local-6989586621679075983"><span class="hs-identifier hs-var">substSubst</span></a></span><span> </span><span class="hs-special">[</span><span class="hs-special">]</span><span> </span><span class="annot"><span class="annottext">([((TcTyVar, PredType), Ct)] -&gt; [((TcTyVar, PredType), Ct)])
+-&gt; ([Ct] -&gt; [((TcTyVar, PredType), Ct)])
+-&gt; [Ct]
+-&gt; [((TcTyVar, PredType), Ct)]
+forall b c a. (b -&gt; c) -&gt; (a -&gt; b) -&gt; a -&gt; c
+</span><span class="hs-operator hs-var">.</span></span><span> </span><span class="annot"><span class="annottext">(Ct -&gt; Maybe ((TcTyVar, PredType), Ct))
+-&gt; [Ct] -&gt; [((TcTyVar, PredType), Ct)]
+forall a b. (a -&gt; Maybe b) -&gt; [a] -&gt; [b]
+</span><span class="hs-identifier hs-var">mapMaybe</span></span><span> </span><span class="annot"><span class="annottext">Ct -&gt; Maybe ((TcTyVar, PredType), Ct)
+</span><a href="GHC.TcPluginM.Extra.html#mkSubst"><span class="hs-identifier hs-var">mkSubst</span></a></span><span>
+</span><span id="line-350"></span><span> </span><span class="hs-keyword">where</span><span>
+</span><span id="line-351"></span><span>  </span><span class="annot"><a href="#local-6989586621679075983"><span class="hs-identifier hs-type">substSubst</span></a></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="hs-special">(</span><span class="hs-special">(</span><span class="annot"><span class="hs-identifier hs-type">TcTyVar</span></span><span class="hs-special">,</span><span class="annot"><span class="hs-identifier hs-type">TcType</span></span><span class="hs-special">)</span><span class="hs-special">,</span><span class="annot"><span class="hs-identifier hs-type">Ct</span></span><span class="hs-special">)</span><span>
+</span><span id="line-352"></span><span>             </span><span class="hs-glyph">-&gt;</span><span> </span><span class="hs-special">[</span><span class="hs-special">(</span><span class="hs-special">(</span><span class="annot"><span class="hs-identifier hs-type">TcTyVar</span></span><span class="hs-special">,</span><span class="annot"><span class="hs-identifier hs-type">TcType</span></span><span class="hs-special">)</span><span class="hs-special">,</span><span class="annot"><span class="hs-identifier hs-type">Ct</span></span><span class="hs-special">)</span><span class="hs-special">]</span><span>
+</span><span id="line-353"></span><span>             </span><span class="hs-glyph">-&gt;</span><span> </span><span class="hs-special">[</span><span class="hs-special">(</span><span class="hs-special">(</span><span class="annot"><span class="hs-identifier hs-type">TcTyVar</span></span><span class="hs-special">,</span><span class="annot"><span class="hs-identifier hs-type">TcType</span></span><span class="hs-special">)</span><span class="hs-special">,</span><span class="annot"><span class="hs-identifier hs-type">Ct</span></span><span class="hs-special">)</span><span class="hs-special">]</span><span>
+</span><span id="line-354"></span><span>  </span><span id="local-6989586621679075983"><span class="annot"><span class="annottext">substSubst :: ((TcTyVar, PredType), Ct)
+-&gt; [((TcTyVar, PredType), Ct)] -&gt; [((TcTyVar, PredType), Ct)]
+</span><a href="#local-6989586621679075983"><span class="hs-identifier hs-var hs-var">substSubst</span></a></span></span><span> </span><span class="hs-special">(</span><span class="hs-special">(</span><span id="local-6989586621679075982"><span class="annot"><span class="annottext">TcTyVar
+</span><a href="#local-6989586621679075982"><span class="hs-identifier hs-var">tv</span></a></span></span><span class="hs-special">,</span><span id="local-6989586621679075981"><span class="annot"><span class="annottext">PredType
+</span><a href="#local-6989586621679075981"><span class="hs-identifier hs-var">t</span></a></span></span><span class="hs-special">)</span><span class="hs-special">,</span><span id="local-6989586621679075980"><span class="annot"><span class="annottext">Ct
+</span><a href="#local-6989586621679075980"><span class="hs-identifier hs-var">ct</span></a></span></span><span class="hs-special">)</span><span> </span><span id="local-6989586621679075979"><span class="annot"><span class="annottext">[((TcTyVar, PredType), Ct)]
+</span><a href="#local-6989586621679075979"><span class="hs-identifier hs-var">s</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="hs-special">(</span><span class="hs-special">(</span><span class="annot"><span class="annottext">TcTyVar
+</span><a href="#local-6989586621679075982"><span class="hs-identifier hs-var">tv</span></a></span><span class="hs-special">,</span><span class="annot"><span class="annottext">[(TcTyVar, PredType)] -&gt; PredType -&gt; PredType
+</span><a href="GHC.TcPluginM.Extra.html#substType"><span class="hs-identifier hs-var">substType</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">(((TcTyVar, PredType), Ct) -&gt; (TcTyVar, PredType))
+-&gt; [((TcTyVar, PredType), Ct)] -&gt; [(TcTyVar, PredType)]
+forall a b. (a -&gt; b) -&gt; [a] -&gt; [b]
+</span><span class="hs-identifier hs-var">map</span></span><span> </span><span class="annot"><span class="annottext">((TcTyVar, PredType), Ct) -&gt; (TcTyVar, PredType)
+forall a b. (a, b) -&gt; a
+</span><span class="hs-identifier hs-var">fst</span></span><span> </span><span class="annot"><span class="annottext">[((TcTyVar, PredType), Ct)]
+</span><a href="#local-6989586621679075979"><span class="hs-identifier hs-var">s</span></a></span><span class="hs-special">)</span><span> </span><span class="annot"><span class="annottext">PredType
+</span><a href="#local-6989586621679075981"><span class="hs-identifier hs-var">t</span></a></span><span class="hs-special">)</span><span class="hs-special">,</span><span class="annot"><span class="annottext">Ct
+</span><a href="#local-6989586621679075980"><span class="hs-identifier hs-var">ct</span></a></span><span class="hs-special">)</span><span>
+</span><span id="line-355"></span><span>                           </span><span class="annot"><span class="annottext">((TcTyVar, PredType), Ct)
+-&gt; [((TcTyVar, PredType), Ct)] -&gt; [((TcTyVar, PredType), Ct)]
+forall a. a -&gt; [a] -&gt; [a]
+</span><span class="hs-glyph hs-var">:</span></span><span> </span><span class="annot"><span class="annottext">(((TcTyVar, PredType), Ct) -&gt; ((TcTyVar, PredType), Ct))
+-&gt; [((TcTyVar, PredType), Ct)] -&gt; [((TcTyVar, PredType), Ct)]
+forall a b. (a -&gt; b) -&gt; [a] -&gt; [b]
+</span><span class="hs-identifier hs-var">map</span></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">((TcTyVar, PredType) -&gt; (TcTyVar, PredType))
+-&gt; ((TcTyVar, PredType), Ct) -&gt; ((TcTyVar, PredType), Ct)
+forall (a :: * -&gt; * -&gt; *) b c d.
+Arrow a =&gt;
+a b c -&gt; a (b, d) (c, d)
+</span><span class="hs-identifier hs-var">first</span></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">(PredType -&gt; PredType)
+-&gt; (TcTyVar, PredType) -&gt; (TcTyVar, PredType)
+forall (a :: * -&gt; * -&gt; *) b c d.
+Arrow a =&gt;
+a b c -&gt; a (d, b) (d, c)
+</span><span class="hs-identifier hs-var">second</span></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">[(TcTyVar, PredType)] -&gt; PredType -&gt; PredType
+</span><a href="GHC.TcPluginM.Extra.html#substType"><span class="hs-identifier hs-var">substType</span></a></span><span> </span><span class="hs-special">[</span><span class="hs-special">(</span><span class="annot"><span class="annottext">TcTyVar
+</span><a href="#local-6989586621679075982"><span class="hs-identifier hs-var">tv</span></a></span><span class="hs-special">,</span><span class="annot"><span class="annottext">PredType
+</span><a href="#local-6989586621679075981"><span class="hs-identifier hs-var">t</span></a></span><span class="hs-special">)</span><span class="hs-special">]</span><span class="hs-special">)</span><span class="hs-special">)</span><span class="hs-special">)</span><span> </span><span class="annot"><span class="annottext">[((TcTyVar, PredType), Ct)]
+</span><a href="#local-6989586621679075979"><span class="hs-identifier hs-var">s</span></a></span><span>
+</span><span id="line-356"></span><span>
+</span><span id="line-357"></span><span class="hs-comment">-- | Create simple substitution from type equalities</span><span>
+</span><span id="line-358"></span><span class="annot"><a href="GHC.TcPluginM.Extra.html#mkSubst"><span class="hs-identifier hs-type">mkSubst</span></a></span><span>
+</span><span id="line-359"></span><span>  </span><span class="hs-glyph">::</span><span> </span><span class="annot"><span class="hs-identifier hs-type">Ct</span></span><span>
+</span><span id="line-360"></span><span>  </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="hs-identifier hs-type">Maybe</span></span><span> </span><span class="hs-special">(</span><span class="hs-special">(</span><span class="annot"><span class="hs-identifier hs-type">TcTyVar</span></span><span class="hs-special">,</span><span> </span><span class="annot"><span class="hs-identifier hs-type">TcType</span></span><span class="hs-special">)</span><span class="hs-special">,</span><span class="annot"><span class="hs-identifier hs-type">Ct</span></span><span class="hs-special">)</span><span>
+</span><span id="line-361"></span><span id="mkSubst"><span class="annot"><span class="annottext">mkSubst :: Ct -&gt; Maybe ((TcTyVar, PredType), Ct)
+</span><a href="GHC.TcPluginM.Extra.html#mkSubst"><span class="hs-identifier hs-var hs-var">mkSubst</span></a></span></span><span> </span><span id="local-6989586621679075978"><span class="annot"><span class="annottext">ct :: Ct
+</span><a href="#local-6989586621679075978"><span class="hs-identifier hs-var">ct</span></a></span></span><span class="hs-glyph">@</span><span class="hs-special">(</span><span class="annot"><span class="hs-identifier hs-type">CTyEqCan</span></span><span> </span><span class="hs-special">{</span><span id="local-6989586621679075973"><span id="local-6989586621679075974"><span id="local-6989586621679075975"><span id="local-6989586621679075976"><span class="annot"><span class="annottext">CtEvidence
+EqRel
+PredType
+TcTyVar
+cc_ev :: Ct -&gt; CtEvidence
+cc_tyvar :: Ct -&gt; TcTyVar
+cc_rhs :: Ct -&gt; PredType
+cc_eq_rel :: Ct -&gt; EqRel
+cc_eq_rel :: EqRel
+cc_rhs :: PredType
+cc_tyvar :: TcTyVar
+cc_ev :: CtEvidence
+</span><span class="hs-glyph hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var">..</span></span></span></span></span></span><span class="hs-special">}</span><span class="hs-special">)</span><span>  </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">((TcTyVar, PredType), Ct) -&gt; Maybe ((TcTyVar, PredType), Ct)
+forall a. a -&gt; Maybe a
+</span><span class="hs-identifier hs-var">Just</span></span><span> </span><span class="hs-special">(</span><span class="hs-special">(</span><span class="annot"><span class="annottext">TcTyVar
+</span><a href="#local-6989586621679075975"><span class="hs-identifier hs-var">cc_tyvar</span></a></span><span class="hs-special">,</span><span class="annot"><span class="annottext">PredType
+</span><a href="#local-6989586621679075974"><span class="hs-identifier hs-var">cc_rhs</span></a></span><span class="hs-special">)</span><span class="hs-special">,</span><span class="annot"><span class="annottext">Ct
+</span><a href="#local-6989586621679075978"><span class="hs-identifier hs-var">ct</span></a></span><span class="hs-special">)</span><span>
+</span><span id="line-362"></span><span class="annot"><a href="GHC.TcPluginM.Extra.html#mkSubst"><span class="hs-identifier hs-var">mkSubst</span></a></span><span> </span><span id="local-6989586621679075968"><span class="annot"><span class="annottext">ct :: Ct
+</span><a href="#local-6989586621679075968"><span class="hs-identifier hs-var">ct</span></a></span></span><span class="hs-glyph">@</span><span class="hs-special">(</span><span class="annot"><span class="hs-identifier hs-type">CFunEqCan</span></span><span> </span><span class="hs-special">{</span><span id="local-6989586621679075963"><span id="local-6989586621679075964"><span id="local-6989586621679075965"><span id="local-6989586621679075966"><span class="annot"><span class="annottext">[PredType]
+CtEvidence
+TcTyVar
+TyCon
+cc_tyargs :: Ct -&gt; [PredType]
+cc_fun :: Ct -&gt; TyCon
+cc_fsk :: Ct -&gt; TcTyVar
+cc_fsk :: TcTyVar
+cc_tyargs :: [PredType]
+cc_fun :: TyCon
+cc_ev :: CtEvidence
+cc_ev :: Ct -&gt; CtEvidence
+</span><span class="hs-glyph hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var">..</span></span></span></span></span></span><span class="hs-special">}</span><span class="hs-special">)</span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">((TcTyVar, PredType), Ct) -&gt; Maybe ((TcTyVar, PredType), Ct)
+forall a. a -&gt; Maybe a
+</span><span class="hs-identifier hs-var">Just</span></span><span> </span><span class="hs-special">(</span><span class="hs-special">(</span><span class="annot"><span class="annottext">TcTyVar
+</span><a href="#local-6989586621679075963"><span class="hs-identifier hs-var">cc_fsk</span></a></span><span class="hs-special">,</span><span class="annot"><span class="annottext">TyCon -&gt; [PredType] -&gt; PredType
+</span><span class="hs-identifier hs-var">TyConApp</span></span><span> </span><span class="annot"><span class="annottext">TyCon
+</span><a href="#local-6989586621679075965"><span class="hs-identifier hs-var">cc_fun</span></a></span><span> </span><span class="annot"><span class="annottext">[PredType]
+</span><a href="#local-6989586621679075964"><span class="hs-identifier hs-var">cc_tyargs</span></a></span><span class="hs-special">)</span><span class="hs-special">,</span><span class="annot"><span class="annottext">Ct
+</span><a href="#local-6989586621679075968"><span class="hs-identifier hs-var">ct</span></a></span><span class="hs-special">)</span><span>
+</span><span id="line-363"></span><span class="annot"><a href="GHC.TcPluginM.Extra.html#mkSubst"><span class="hs-identifier hs-var">mkSubst</span></a></span><span> </span><span class="annot"><span class="annottext">Ct
+</span><span class="hs-identifier">_</span></span><span>                   </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">Maybe ((TcTyVar, PredType), Ct)
+forall a. Maybe a
+</span><span class="hs-identifier hs-var">Nothing</span></span><span>
+</span><span id="line-364"></span><span>
+</span><span id="line-365"></span><span class="hs-comment">-- | Apply substitution in the evidence of Cts</span><span>
+</span><span id="line-366"></span><span class="annot"><a href="GHC.TcPluginM.Extra.html#substCt"><span class="hs-identifier hs-type">substCt</span></a></span><span>
+</span><span id="line-367"></span><span>  </span><span class="hs-glyph">::</span><span> </span><span class="hs-special">[</span><span class="hs-special">(</span><span class="annot"><span class="hs-identifier hs-type">TcTyVar</span></span><span class="hs-special">,</span><span> </span><span class="annot"><span class="hs-identifier hs-type">TcType</span></span><span class="hs-special">)</span><span class="hs-special">]</span><span>
+</span><span id="line-368"></span><span>  </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="hs-identifier hs-type">Ct</span></span><span>
+</span><span id="line-369"></span><span>  </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="hs-identifier hs-type">Ct</span></span><span>
+</span><span id="line-370"></span><span id="substCt"><span class="annot"><span class="annottext">substCt :: [(TcTyVar, PredType)] -&gt; Ct -&gt; Ct
+</span><a href="GHC.TcPluginM.Extra.html#substCt"><span class="hs-identifier hs-var hs-var">substCt</span></a></span></span><span> </span><span id="local-6989586621679075958"><span class="annot"><span class="annottext">[(TcTyVar, PredType)]
+</span><a href="#local-6989586621679075958"><span class="hs-identifier hs-var">subst</span></a></span></span><span> </span><span id="local-6989586621679075957"><span class="annot"><span class="annottext">Ct
+</span><a href="#local-6989586621679075957"><span class="hs-identifier hs-var">ct</span></a></span></span><span> </span><span class="hs-glyph">=</span><span>
+</span><span id="line-371"></span><span>  </span><span class="annot"><span class="annottext">Ct
+</span><a href="#local-6989586621679075957"><span class="hs-identifier hs-var">ct</span></a></span><span> </span><span class="hs-special">{</span><span> </span><span class="annot"><span class="annottext">cc_ev :: CtEvidence
+</span><span class="hs-identifier hs-var">cc_ev</span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">Ct -&gt; CtEvidence
+</span><span class="hs-identifier hs-var hs-var">cc_ev</span></span><span> </span><span class="annot"><span class="annottext">Ct
+</span><a href="#local-6989586621679075957"><span class="hs-identifier hs-var">ct</span></a></span><span class="hs-special">)</span><span> </span><span class="hs-special">{</span><span class="annot"><span class="annottext">ctev_pred :: PredType
+</span><span class="hs-identifier hs-var">ctev_pred</span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">[(TcTyVar, PredType)] -&gt; PredType -&gt; PredType
+</span><a href="GHC.TcPluginM.Extra.html#substType"><span class="hs-identifier hs-var">substType</span></a></span><span> </span><span class="annot"><span class="annottext">[(TcTyVar, PredType)]
+</span><a href="#local-6989586621679075958"><span class="hs-identifier hs-var">subst</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">CtEvidence -&gt; PredType
+</span><span class="hs-identifier hs-var hs-var">ctev_pred</span></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">Ct -&gt; CtEvidence
+</span><span class="hs-identifier hs-var hs-var">cc_ev</span></span><span> </span><span class="annot"><span class="annottext">Ct
+</span><a href="#local-6989586621679075957"><span class="hs-identifier hs-var">ct</span></a></span><span class="hs-special">)</span><span class="hs-special">)</span><span class="hs-special">}</span><span>
+</span><span id="line-372"></span><span>     </span><span class="hs-special">}</span><span>
+</span><span id="line-373"></span><span>
+</span><span id="line-374"></span><span class="hs-comment">-- | Apply substitutions in Types</span><span>
+</span><span id="line-375"></span><span class="hs-comment">--</span><span>
+</span><span id="line-376"></span><span class="hs-comment">-- __NB:__ Doesn't substitute under binders</span><span>
+</span><span id="line-377"></span><span class="annot"><a href="GHC.TcPluginM.Extra.html#substType"><span class="hs-identifier hs-type">substType</span></a></span><span>
+</span><span id="line-378"></span><span>  </span><span class="hs-glyph">::</span><span> </span><span class="hs-special">[</span><span class="hs-special">(</span><span class="annot"><span class="hs-identifier hs-type">TcTyVar</span></span><span class="hs-special">,</span><span> </span><span class="annot"><span class="hs-identifier hs-type">TcType</span></span><span class="hs-special">)</span><span class="hs-special">]</span><span>
+</span><span id="line-379"></span><span>  </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="hs-identifier hs-type">TcType</span></span><span>
+</span><span id="line-380"></span><span>  </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="hs-identifier hs-type">TcType</span></span><span>
+</span><span id="line-381"></span><span id="substType"><span class="annot"><span class="annottext">substType :: [(TcTyVar, PredType)] -&gt; PredType -&gt; PredType
+</span><a href="GHC.TcPluginM.Extra.html#substType"><span class="hs-identifier hs-var hs-var">substType</span></a></span></span><span> </span><span id="local-6989586621679075955"><span class="annot"><span class="annottext">[(TcTyVar, PredType)]
+</span><a href="#local-6989586621679075955"><span class="hs-identifier hs-var">subst</span></a></span></span><span> </span><span id="local-6989586621679075954"><span class="annot"><span class="annottext">tv :: PredType
+</span><a href="#local-6989586621679075954"><span class="hs-identifier hs-var">tv</span></a></span></span><span class="hs-glyph">@</span><span class="hs-special">(</span><span class="annot"><span class="hs-identifier hs-type">TyVarTy</span></span><span> </span><span id="local-6989586621679075952"><span class="annot"><span class="annottext">TcTyVar
+</span><a href="#local-6989586621679075952"><span class="hs-identifier hs-var">v</span></a></span></span><span class="hs-special">)</span><span> </span><span class="hs-glyph">=</span><span> </span><span class="hs-keyword">case</span><span> </span><span class="annot"><span class="annottext">TcTyVar -&gt; [(TcTyVar, PredType)] -&gt; Maybe PredType
+forall a b. Eq a =&gt; a -&gt; [(a, b)] -&gt; Maybe b
+</span><span class="hs-identifier hs-var">lookup</span></span><span> </span><span class="annot"><span class="annottext">TcTyVar
+</span><a href="#local-6989586621679075952"><span class="hs-identifier hs-var">v</span></a></span><span> </span><span class="annot"><span class="annottext">[(TcTyVar, PredType)]
+</span><a href="#local-6989586621679075955"><span class="hs-identifier hs-var">subst</span></a></span><span> </span><span class="hs-keyword">of</span><span>
+</span><span id="line-382"></span><span>  </span><span class="annot"><span class="hs-identifier hs-type">Just</span></span><span> </span><span id="local-6989586621679075950"><span class="annot"><span class="annottext">PredType
+</span><a href="#local-6989586621679075950"><span class="hs-identifier hs-var">t</span></a></span></span><span>  </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="annottext">PredType
+</span><a href="#local-6989586621679075950"><span class="hs-identifier hs-var">t</span></a></span><span>
+</span><span id="line-383"></span><span>  </span><span class="annot"><span class="annottext">Maybe PredType
+</span><span class="hs-identifier hs-var">Nothing</span></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="annottext">PredType
+</span><a href="#local-6989586621679075954"><span class="hs-identifier hs-var">tv</span></a></span><span>
+</span><span id="line-384"></span><span class="annot"><a href="GHC.TcPluginM.Extra.html#substType"><span class="hs-identifier hs-var">substType</span></a></span><span> </span><span id="local-6989586621679075949"><span class="annot"><span class="annottext">[(TcTyVar, PredType)]
+</span><a href="#local-6989586621679075949"><span class="hs-identifier hs-var">subst</span></a></span></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="hs-identifier hs-type">AppTy</span></span><span> </span><span id="local-6989586621679075947"><span class="annot"><span class="annottext">PredType
+</span><a href="#local-6989586621679075947"><span class="hs-identifier hs-var">t1</span></a></span></span><span> </span><span id="local-6989586621679075946"><span class="annot"><span class="annottext">PredType
+</span><a href="#local-6989586621679075946"><span class="hs-identifier hs-var">t2</span></a></span></span><span class="hs-special">)</span><span> </span><span class="hs-glyph">=</span><span>
+</span><span id="line-385"></span><span>  </span><span class="annot"><span class="annottext">PredType -&gt; PredType -&gt; PredType
+</span><span class="hs-identifier hs-var">AppTy</span></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">[(TcTyVar, PredType)] -&gt; PredType -&gt; PredType
+</span><a href="GHC.TcPluginM.Extra.html#substType"><span class="hs-identifier hs-var">substType</span></a></span><span> </span><span class="annot"><span class="annottext">[(TcTyVar, PredType)]
+</span><a href="#local-6989586621679075949"><span class="hs-identifier hs-var">subst</span></a></span><span> </span><span class="annot"><span class="annottext">PredType
+</span><a href="#local-6989586621679075947"><span class="hs-identifier hs-var">t1</span></a></span><span class="hs-special">)</span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">[(TcTyVar, PredType)] -&gt; PredType -&gt; PredType
+</span><a href="GHC.TcPluginM.Extra.html#substType"><span class="hs-identifier hs-var">substType</span></a></span><span> </span><span class="annot"><span class="annottext">[(TcTyVar, PredType)]
+</span><a href="#local-6989586621679075949"><span class="hs-identifier hs-var">subst</span></a></span><span> </span><span class="annot"><span class="annottext">PredType
+</span><a href="#local-6989586621679075946"><span class="hs-identifier hs-var">t2</span></a></span><span class="hs-special">)</span><span>
+</span><span id="line-386"></span><span class="annot"><a href="GHC.TcPluginM.Extra.html#substType"><span class="hs-identifier hs-var">substType</span></a></span><span> </span><span id="local-6989586621679075945"><span class="annot"><span class="annottext">[(TcTyVar, PredType)]
+</span><a href="#local-6989586621679075945"><span class="hs-identifier hs-var">subst</span></a></span></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="hs-identifier hs-type">TyConApp</span></span><span> </span><span id="local-6989586621679075944"><span class="annot"><span class="annottext">TyCon
+</span><a href="#local-6989586621679075944"><span class="hs-identifier hs-var">tc</span></a></span></span><span> </span><span id="local-6989586621679075943"><span class="annot"><span class="annottext">[PredType]
+</span><a href="#local-6989586621679075943"><span class="hs-identifier hs-var">xs</span></a></span></span><span class="hs-special">)</span><span> </span><span class="hs-glyph">=</span><span>
+</span><span id="line-387"></span><span>  </span><span class="annot"><span class="annottext">TyCon -&gt; [PredType] -&gt; PredType
+</span><span class="hs-identifier hs-var">TyConApp</span></span><span> </span><span class="annot"><span class="annottext">TyCon
+</span><a href="#local-6989586621679075944"><span class="hs-identifier hs-var">tc</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">(PredType -&gt; PredType) -&gt; [PredType] -&gt; [PredType]
+forall a b. (a -&gt; b) -&gt; [a] -&gt; [b]
+</span><span class="hs-identifier hs-var">map</span></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">[(TcTyVar, PredType)] -&gt; PredType -&gt; PredType
+</span><a href="GHC.TcPluginM.Extra.html#substType"><span class="hs-identifier hs-var">substType</span></a></span><span> </span><span class="annot"><span class="annottext">[(TcTyVar, PredType)]
+</span><a href="#local-6989586621679075945"><span class="hs-identifier hs-var">subst</span></a></span><span class="hs-special">)</span><span> </span><span class="annot"><span class="annottext">[PredType]
+</span><a href="#local-6989586621679075943"><span class="hs-identifier hs-var">xs</span></a></span><span class="hs-special">)</span><span>
+</span><span id="line-388"></span><span class="annot"><a href="GHC.TcPluginM.Extra.html#substType"><span class="hs-identifier hs-var">substType</span></a></span><span> </span><span id="local-6989586621679075942"><span class="annot"><span class="annottext">[(TcTyVar, PredType)]
+</span><a href="#local-6989586621679075942"><span class="hs-identifier hs-var">_subst</span></a></span></span><span> </span><span id="local-6989586621679075941"><span class="annot"><span class="annottext">t :: PredType
+</span><a href="#local-6989586621679075941"><span class="hs-identifier hs-var">t</span></a></span></span><span class="hs-glyph">@</span><span class="hs-special">(</span><span class="annot"><span class="hs-identifier hs-type">ForAllTy</span></span><span> </span><span id="local-6989586621679075939"><span class="annot"><span class="annottext">TyCoVarBinder
+</span><a href="#local-6989586621679075939"><span class="hs-identifier hs-var">_tv</span></a></span></span><span> </span><span id="local-6989586621679075938"><span class="annot"><span class="annottext">PredType
+</span><a href="#local-6989586621679075938"><span class="hs-identifier hs-var">_ty</span></a></span></span><span class="hs-special">)</span><span> </span><span class="hs-glyph">=</span><span>
+</span><span id="line-389"></span><span>  </span><span class="hs-comment">-- TODO: Is it safe to do &quot;dumb&quot; substitution under binders?</span><span>
+</span><span id="line-390"></span><span>  </span><span class="hs-comment">-- ForAllTy tv (substType subst ty)</span><span>
+</span><span id="line-391"></span><span>  </span><span class="annot"><span class="annottext">PredType
+</span><a href="#local-6989586621679075941"><span class="hs-identifier hs-var">t</span></a></span><span class="hs-cpp">
+#if __GLASGOW_HASKELL__ &gt;= 809
+</span><span class="annot"><a href="GHC.TcPluginM.Extra.html#substType"><span class="hs-identifier hs-var">substType</span></a></span><span> </span><span id="local-6989586621679075937"><span class="annot"><span class="annottext">[(TcTyVar, PredType)]
+</span><a href="#local-6989586621679075937"><span class="hs-identifier hs-var">subst</span></a></span></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="hs-identifier hs-type">FunTy</span></span><span> </span><span id="local-6989586621679075935"><span class="annot"><span class="annottext">AnonArgFlag
+</span><a href="#local-6989586621679075935"><span class="hs-identifier hs-var">af</span></a></span></span><span> </span><span id="local-6989586621679075934"><span class="annot"><span class="annottext">PredType
+</span><a href="#local-6989586621679075934"><span class="hs-identifier hs-var">t1</span></a></span></span><span> </span><span id="local-6989586621679075933"><span class="annot"><span class="annottext">PredType
+</span><a href="#local-6989586621679075933"><span class="hs-identifier hs-var">t2</span></a></span></span><span class="hs-special">)</span><span> </span><span class="hs-glyph">=</span><span>
+</span><span id="line-394"></span><span>  </span><span class="annot"><span class="annottext">AnonArgFlag -&gt; PredType -&gt; PredType -&gt; PredType
+</span><span class="hs-identifier hs-var">FunTy</span></span><span> </span><span class="annot"><span class="annottext">AnonArgFlag
+</span><a href="#local-6989586621679075935"><span class="hs-identifier hs-var">af</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">[(TcTyVar, PredType)] -&gt; PredType -&gt; PredType
+</span><a href="GHC.TcPluginM.Extra.html#substType"><span class="hs-identifier hs-var">substType</span></a></span><span> </span><span class="annot"><span class="annottext">[(TcTyVar, PredType)]
+</span><a href="#local-6989586621679075937"><span class="hs-identifier hs-var">subst</span></a></span><span> </span><span class="annot"><span class="annottext">PredType
+</span><a href="#local-6989586621679075934"><span class="hs-identifier hs-var">t1</span></a></span><span class="hs-special">)</span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">[(TcTyVar, PredType)] -&gt; PredType -&gt; PredType
+</span><a href="GHC.TcPluginM.Extra.html#substType"><span class="hs-identifier hs-var">substType</span></a></span><span> </span><span class="annot"><span class="annottext">[(TcTyVar, PredType)]
+</span><a href="#local-6989586621679075937"><span class="hs-identifier hs-var">subst</span></a></span><span> </span><span class="annot"><span class="annottext">PredType
+</span><a href="#local-6989586621679075933"><span class="hs-identifier hs-var">t2</span></a></span><span class="hs-special">)</span><span class="hs-cpp">
+#elif __GLASGOW_HASKELL__ &gt;= 802
+</span><span class="hs-identifier">substType</span><span> </span><span class="hs-identifier">subst</span><span> </span><span class="hs-special">(</span><span class="hs-identifier">FunTy</span><span> </span><span class="hs-identifier">t1</span><span> </span><span class="hs-identifier">t2</span><span class="hs-special">)</span><span> </span><span class="hs-glyph">=</span><span>
+</span><span id="line-397"></span><span>  </span><span class="hs-identifier">FunTy</span><span> </span><span class="hs-special">(</span><span class="hs-identifier">substType</span><span> </span><span class="hs-identifier">subst</span><span> </span><span class="hs-identifier">t1</span><span class="hs-special">)</span><span> </span><span class="hs-special">(</span><span class="hs-identifier">substType</span><span> </span><span class="hs-identifier">subst</span><span> </span><span class="hs-identifier">t2</span><span class="hs-special">)</span><span class="hs-cpp">
+#elif __GLASGOW_HASKELL__ &lt; 711
+</span><span class="hs-identifier">substType</span><span> </span><span class="hs-identifier">subst</span><span> </span><span class="hs-special">(</span><span class="hs-identifier">FunTy</span><span> </span><span class="hs-identifier">t1</span><span> </span><span class="hs-identifier">t2</span><span class="hs-special">)</span><span> </span><span class="hs-glyph">=</span><span>
+</span><span id="line-400"></span><span>  </span><span class="hs-identifier">FunTy</span><span> </span><span class="hs-special">(</span><span class="hs-identifier">substType</span><span> </span><span class="hs-identifier">subst</span><span> </span><span class="hs-identifier">t1</span><span class="hs-special">)</span><span> </span><span class="hs-special">(</span><span class="hs-identifier">substType</span><span> </span><span class="hs-identifier">subst</span><span> </span><span class="hs-identifier">t2</span><span class="hs-special">)</span><span class="hs-cpp">
+#endif
+</span><span class="annot"><a href="GHC.TcPluginM.Extra.html#substType"><span class="hs-identifier hs-var">substType</span></a></span><span> </span><span class="annot"><span class="annottext">[(TcTyVar, PredType)]
+</span><span class="hs-identifier">_</span></span><span> </span><span id="local-6989586621679075932"><span class="annot"><span class="annottext">l :: PredType
+</span><a href="#local-6989586621679075932"><span class="hs-identifier hs-var">l</span></a></span></span><span class="hs-glyph">@</span><span class="hs-special">(</span><span class="annot"><span class="hs-identifier hs-type">LitTy</span></span><span> </span><span class="annot"><span class="annottext">TyLit
+</span><span class="hs-identifier">_</span></span><span class="hs-special">)</span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">PredType
+</span><a href="#local-6989586621679075932"><span class="hs-identifier hs-var">l</span></a></span><span class="hs-cpp">
+#if __GLASGOW_HASKELL__ &gt; 711
+</span><span class="annot"><a href="GHC.TcPluginM.Extra.html#substType"><span class="hs-identifier hs-var">substType</span></a></span><span> </span><span id="local-6989586621679075930"><span class="annot"><span class="annottext">[(TcTyVar, PredType)]
+</span><a href="#local-6989586621679075930"><span class="hs-identifier hs-var">subst</span></a></span></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="hs-identifier hs-type">CastTy</span></span><span> </span><span id="local-6989586621679075928"><span class="annot"><span class="annottext">PredType
+</span><a href="#local-6989586621679075928"><span class="hs-identifier hs-var">ty</span></a></span></span><span> </span><span id="local-6989586621679075927"><span class="annot"><span class="annottext">Coercion
+</span><a href="#local-6989586621679075927"><span class="hs-identifier hs-var">co</span></a></span></span><span class="hs-special">)</span><span> </span><span class="hs-glyph">=</span><span>
+</span><span id="line-405"></span><span>  </span><span class="annot"><span class="annottext">PredType -&gt; Coercion -&gt; PredType
+</span><span class="hs-identifier hs-var">CastTy</span></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">[(TcTyVar, PredType)] -&gt; PredType -&gt; PredType
+</span><a href="GHC.TcPluginM.Extra.html#substType"><span class="hs-identifier hs-var">substType</span></a></span><span> </span><span class="annot"><span class="annottext">[(TcTyVar, PredType)]
+</span><a href="#local-6989586621679075930"><span class="hs-identifier hs-var">subst</span></a></span><span> </span><span class="annot"><span class="annottext">PredType
+</span><a href="#local-6989586621679075928"><span class="hs-identifier hs-var">ty</span></a></span><span class="hs-special">)</span><span> </span><span class="annot"><span class="annottext">Coercion
+</span><a href="#local-6989586621679075927"><span class="hs-identifier hs-var">co</span></a></span><span>
+</span><span id="line-406"></span><span class="annot"><a href="GHC.TcPluginM.Extra.html#substType"><span class="hs-identifier hs-var">substType</span></a></span><span> </span><span class="annot"><span class="annottext">[(TcTyVar, PredType)]
+</span><span class="hs-identifier">_</span></span><span> </span><span id="local-6989586621679075926"><span class="annot"><span class="annottext">co :: PredType
+</span><a href="#local-6989586621679075926"><span class="hs-identifier hs-var">co</span></a></span></span><span class="hs-glyph">@</span><span class="hs-special">(</span><span class="annot"><span class="hs-identifier hs-type">CoercionTy</span></span><span> </span><span class="annot"><span class="annottext">Coercion
+</span><span class="hs-identifier">_</span></span><span class="hs-special">)</span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">PredType
+</span><a href="#local-6989586621679075926"><span class="hs-identifier hs-var">co</span></a></span><span class="hs-cpp">
+#endif
+</span></pre></body></html>

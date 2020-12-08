@@ -1,0 +1,431 @@
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd"><html xmlns="http://www.w3.org/1999/xhtml"><head><link rel="stylesheet" type="text/css" href="style.css" /><script type="text/javascript" src="highlight.js"></script></head><body><pre><span class="hs-pragma">{-# LANGUAGE CPP #-}</span><span>
+</span><span id="line-2"></span><span class="hs-pragma">{-# LANGUAGE DefaultSignatures #-}</span><span>
+</span><span id="line-3"></span><span class="hs-pragma">{-# LANGUAGE NoImplicitPrelude #-}</span><span>
+</span><span id="line-4"></span><span class="hs-comment">-- |</span><span>
+</span><span id="line-5"></span><span class="hs-comment">-- Module:       $HEADER$</span><span>
+</span><span id="line-6"></span><span class="hs-comment">-- Description:  Polymorphic interface for getting number of digits of a number</span><span>
+</span><span id="line-7"></span><span class="hs-comment">--               in decimal or hexadecimal representation.</span><span>
+</span><span id="line-8"></span><span class="hs-comment">-- Copyright:    (c) 2015-2016, Peter Tr&#353;ko</span><span>
+</span><span id="line-9"></span><span class="hs-comment">-- License:      BSD3</span><span>
+</span><span id="line-10"></span><span class="hs-comment">--</span><span>
+</span><span id="line-11"></span><span class="hs-comment">-- Stability:    experimental</span><span>
+</span><span id="line-12"></span><span class="hs-comment">-- Portability:  DefaultSignatures, NoImplicitPrelude</span><span>
+</span><span id="line-13"></span><span class="hs-comment">--</span><span>
+</span><span id="line-14"></span><span class="hs-comment">-- Polymorphic interface for getting number of digits of a number in decimal or</span><span>
+</span><span id="line-15"></span><span class="hs-comment">-- hexadecimal representation.</span><span>
+</span><span id="line-16"></span><span class="hs-keyword">module</span><span> </span><span class="hs-identifier">Data.NumberLength</span><span>
+</span><span id="line-17"></span><span>    </span><span class="hs-special">(</span><span>
+</span><span id="line-18"></span><span>      </span><span class="annot"><a href="Data.NumberLength.html#NumberLength"><span class="hs-identifier">NumberLength</span></a></span><span class="hs-special">(</span><span class="hs-glyph">..</span><span class="hs-special">)</span><span>
+</span><span id="line-19"></span><span>    </span><span class="hs-special">,</span><span> </span><span class="annot"><a href="Data.NumberLength.html#SignedNumberLength"><span class="hs-identifier">SignedNumberLength</span></a></span><span class="hs-special">(</span><span class="hs-glyph">..</span><span class="hs-special">)</span><span>
+</span><span id="line-20"></span><span>    </span><span class="hs-special">,</span><span> </span><span class="annot"><a href="Data.NumberLength.html#BoundedNumberLength"><span class="hs-identifier">BoundedNumberLength</span></a></span><span class="hs-special">(</span><span class="hs-glyph">..</span><span class="hs-special">)</span><span>
+</span><span id="line-21"></span><span>    </span><span class="hs-special">)</span><span>
+</span><span id="line-22"></span><span>  </span><span class="hs-keyword">where</span><span>
+</span><span id="line-23"></span><span>
+</span><span id="line-24"></span><span class="hs-keyword">import</span><span> </span><span class="annot"><span class="hs-identifier">Prelude</span></span><span class="hs-special">(</span><span class="annot"><span class="hs-identifier">Integer</span></span><span class="hs-special">,</span><span> </span><span class="annot"><span class="hs-identifier">Num</span></span><span class="hs-special">(</span><span class="annot"><span class="hs-operator">(+)</span></span><span class="hs-special">)</span><span class="hs-special">,</span><span> </span><span class="annot"><span class="hs-identifier">fromIntegral</span></span><span class="hs-special">)</span><span>
+</span><span id="line-25"></span><span>
+</span><span id="line-26"></span><span class="hs-keyword">import</span><span> </span><span class="annot"><span class="hs-identifier">Data.Int</span></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="hs-identifier">Int</span></span><span class="hs-special">,</span><span> </span><span class="annot"><span class="hs-identifier">Int16</span></span><span class="hs-special">,</span><span> </span><span class="annot"><span class="hs-identifier">Int32</span></span><span class="hs-special">,</span><span> </span><span class="annot"><span class="hs-identifier">Int64</span></span><span class="hs-special">,</span><span> </span><span class="annot"><span class="hs-identifier">Int8</span></span><span class="hs-special">)</span><span>
+</span><span id="line-27"></span><span class="hs-keyword">import</span><span> </span><span class="annot"><span class="hs-identifier">Data.Ord</span></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="hs-identifier">Ord</span></span><span class="hs-special">(</span><span class="annot"><span class="hs-operator">(&lt;)</span></span><span class="hs-special">)</span><span class="hs-special">)</span><span>
+</span><span id="line-28"></span><span class="hs-keyword">import</span><span> </span><span class="annot"><span class="hs-identifier">Data.Word</span></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="hs-identifier">Word</span></span><span class="hs-special">,</span><span> </span><span class="annot"><span class="hs-identifier">Word16</span></span><span class="hs-special">,</span><span> </span><span class="annot"><span class="hs-identifier">Word32</span></span><span class="hs-special">,</span><span> </span><span class="annot"><span class="hs-identifier">Word64</span></span><span class="hs-special">,</span><span> </span><span class="annot"><span class="hs-identifier">Word8</span></span><span class="hs-special">)</span><span class="hs-cpp">
+#ifdef HAVE_NATURAL
+</span><span class="hs-keyword">import</span><span> </span><span class="annot"><span class="hs-identifier">Numeric.Natural</span></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="hs-identifier">Natural</span></span><span class="hs-special">)</span><span class="hs-cpp">
+#endif
+</span><span>
+</span><span id="line-33"></span><span class="hs-keyword">import</span><span> </span><span class="annot"><a href="Data.NumberLength.Int.html"><span class="hs-identifier">Data.NumberLength.Int</span></a></span><span>
+</span><span id="line-34"></span><span>    </span><span class="hs-special">(</span><span> </span><span class="annot"><a href="Data.NumberLength.Int.html#lengthInt"><span class="hs-identifier">lengthInt</span></a></span><span>
+</span><span id="line-35"></span><span>    </span><span class="hs-special">,</span><span> </span><span class="annot"><a href="Data.NumberLength.Int.html#lengthInt16"><span class="hs-identifier">lengthInt16</span></a></span><span>
+</span><span id="line-36"></span><span>    </span><span class="hs-special">,</span><span> </span><span class="annot"><a href="Data.NumberLength.Int.html#lengthInt16hex"><span class="hs-identifier">lengthInt16hex</span></a></span><span>
+</span><span id="line-37"></span><span>    </span><span class="hs-special">,</span><span> </span><span class="annot"><a href="Data.NumberLength.Int.html#lengthInt32"><span class="hs-identifier">lengthInt32</span></a></span><span>
+</span><span id="line-38"></span><span>    </span><span class="hs-special">,</span><span> </span><span class="annot"><a href="Data.NumberLength.Int.html#lengthInt32hex"><span class="hs-identifier">lengthInt32hex</span></a></span><span>
+</span><span id="line-39"></span><span>    </span><span class="hs-special">,</span><span> </span><span class="annot"><a href="Data.NumberLength.Int.html#lengthInt64"><span class="hs-identifier">lengthInt64</span></a></span><span>
+</span><span id="line-40"></span><span>    </span><span class="hs-special">,</span><span> </span><span class="annot"><a href="Data.NumberLength.Int.html#lengthInt64hex"><span class="hs-identifier">lengthInt64hex</span></a></span><span>
+</span><span id="line-41"></span><span>    </span><span class="hs-special">,</span><span> </span><span class="annot"><a href="Data.NumberLength.Int.html#lengthInt8"><span class="hs-identifier">lengthInt8</span></a></span><span>
+</span><span id="line-42"></span><span>    </span><span class="hs-special">,</span><span> </span><span class="annot"><a href="Data.NumberLength.Int.html#lengthInt8hex"><span class="hs-identifier">lengthInt8hex</span></a></span><span>
+</span><span id="line-43"></span><span>    </span><span class="hs-special">,</span><span> </span><span class="annot"><a href="Data.NumberLength.Int.html#lengthIntHex"><span class="hs-identifier">lengthIntHex</span></a></span><span>
+</span><span id="line-44"></span><span>    </span><span class="hs-special">)</span><span>
+</span><span id="line-45"></span><span class="hs-keyword">import</span><span> </span><span class="annot"><a href="Data.NumberLength.Integer.html"><span class="hs-identifier">Data.NumberLength.Integer</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><a href="Data.NumberLength.Integer.html#lengthInteger"><span class="hs-identifier">lengthInteger</span></a></span><span class="hs-special">,</span><span> </span><span class="annot"><a href="Data.NumberLength.Integer.html#lengthIntegerHex"><span class="hs-identifier">lengthIntegerHex</span></a></span><span class="hs-special">)</span><span>
+</span><span id="line-46"></span><span class="hs-keyword">import</span><span> </span><span class="annot"><a href="Data.NumberLength.Internal.html"><span class="hs-identifier">Data.NumberLength.Internal</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><a href="Data.NumberLength.Internal.html#either32or64"><span class="hs-identifier">either32or64</span></a></span><span class="hs-special">)</span><span class="hs-cpp">
+#ifdef HAVE_NATURAL
+</span><span class="hs-keyword">import</span><span> </span><span class="annot"><a href="Data.NumberLength.Natural.html"><span class="hs-identifier">Data.NumberLength.Natural</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><a href="Data.NumberLength.Natural.html#lengthNatural"><span class="hs-identifier">lengthNatural</span></a></span><span class="hs-special">,</span><span> </span><span class="annot"><a href="Data.NumberLength.Natural.html#lengthNaturalHex"><span class="hs-identifier">lengthNaturalHex</span></a></span><span class="hs-special">)</span><span class="hs-cpp">
+#endif
+</span><span class="hs-keyword">import</span><span> </span><span class="annot"><a href="Data.NumberLength.Word.html"><span class="hs-identifier">Data.NumberLength.Word</span></a></span><span>
+</span><span id="line-51"></span><span>    </span><span class="hs-special">(</span><span> </span><span class="annot"><a href="Data.NumberLength.Word.html#lengthWord"><span class="hs-identifier">lengthWord</span></a></span><span>
+</span><span id="line-52"></span><span>    </span><span class="hs-special">,</span><span> </span><span class="annot"><a href="Data.NumberLength.Word.html#lengthWord16"><span class="hs-identifier">lengthWord16</span></a></span><span>
+</span><span id="line-53"></span><span>    </span><span class="hs-special">,</span><span> </span><span class="annot"><a href="Data.NumberLength.Word.html#lengthWord16hex"><span class="hs-identifier">lengthWord16hex</span></a></span><span>
+</span><span id="line-54"></span><span>    </span><span class="hs-special">,</span><span> </span><span class="annot"><a href="Data.NumberLength.Word.html#lengthWord32"><span class="hs-identifier">lengthWord32</span></a></span><span>
+</span><span id="line-55"></span><span>    </span><span class="hs-special">,</span><span> </span><span class="annot"><a href="Data.NumberLength.Word.html#lengthWord32hex"><span class="hs-identifier">lengthWord32hex</span></a></span><span>
+</span><span id="line-56"></span><span>    </span><span class="hs-special">,</span><span> </span><span class="annot"><a href="Data.NumberLength.Word.html#lengthWord64"><span class="hs-identifier">lengthWord64</span></a></span><span>
+</span><span id="line-57"></span><span>    </span><span class="hs-special">,</span><span> </span><span class="annot"><a href="Data.NumberLength.Word.html#lengthWord64hex"><span class="hs-identifier">lengthWord64hex</span></a></span><span>
+</span><span id="line-58"></span><span>    </span><span class="hs-special">,</span><span> </span><span class="annot"><a href="Data.NumberLength.Word.html#lengthWord8"><span class="hs-identifier">lengthWord8</span></a></span><span>
+</span><span id="line-59"></span><span>    </span><span class="hs-special">,</span><span> </span><span class="annot"><a href="Data.NumberLength.Word.html#lengthWord8hex"><span class="hs-identifier">lengthWord8hex</span></a></span><span>
+</span><span id="line-60"></span><span>    </span><span class="hs-special">,</span><span> </span><span class="annot"><a href="Data.NumberLength.Word.html#lengthWordHex"><span class="hs-identifier">lengthWordHex</span></a></span><span>
+</span><span id="line-61"></span><span>    </span><span class="hs-special">)</span><span>
+</span><span id="line-62"></span><span>
+</span><span id="line-63"></span><span>
+</span><span id="line-64"></span><span class="hs-comment">-- | Get number of digits of a number in base 10 and base 16. Note the</span><span>
+</span><span id="line-65"></span><span class="hs-comment">-- following:</span><span>
+</span><span id="line-66"></span><span class="hs-comment">--</span><span>
+</span><span id="line-67"></span><span class="hs-comment">-- * There is no 'Num' constraint, so that type wrappers aren't forced to</span><span>
+</span><span id="line-68"></span><span class="hs-comment">--   provide instance for it. This is because there are things represented</span><span>
+</span><span id="line-69"></span><span class="hs-comment">--   using numbers, but they aren't numbers, e.g. telephone numbers.</span><span>
+</span><span id="line-70"></span><span class="hs-comment">--</span><span>
+</span><span id="line-71"></span><span class="hs-comment">-- * This type class doesn't handle signed numbers, in an intuitive way. See</span><span>
+</span><span id="line-72"></span><span class="hs-comment">--   also 'SignedNumberLength'.</span><span>
+</span><span id="line-73"></span><span class="hs-comment">--</span><span>
+</span><span id="line-74"></span><span class="hs-comment">-- * There is a special class for bounded numbers, see 'BoundedNumberLength',</span><span>
+</span><span id="line-75"></span><span class="hs-comment">--   that provides similar functionality as 'Prelude.Bounded', but for number</span><span>
+</span><span id="line-76"></span><span class="hs-comment">--   of digits in a number.</span><span>
+</span><span id="line-77"></span><span class="hs-keyword">class</span><span> </span><span id="NumberLength"><span class="annot"><a href="Data.NumberLength.html#NumberLength"><span class="hs-identifier hs-var">NumberLength</span></a></span></span><span> </span><span id="local-6989586621679028733"><span class="annot"><a href="#local-6989586621679028733"><span class="hs-identifier hs-type">a</span></a></span></span><span> </span><span class="hs-keyword">where</span><span>
+</span><span id="line-78"></span><span>    </span><span class="hs-comment">-- | Get number of digits in base 10 for specified number. Note that if</span><span>
+</span><span id="line-79"></span><span>    </span><span class="hs-comment">-- number is signed, then this function will return length of its absolute</span><span>
+</span><span id="line-80"></span><span>    </span><span class="hs-comment">-- value.</span><span>
+</span><span id="line-81"></span><span>    </span><span class="hs-comment">--</span><span>
+</span><span id="line-82"></span><span>    </span><span class="hs-comment">-- &gt;&gt;&gt; numberLength (123 :: Int)</span><span>
+</span><span id="line-83"></span><span>    </span><span class="hs-comment">-- 3</span><span>
+</span><span id="line-84"></span><span>    </span><span class="hs-comment">-- &gt;&gt;&gt; numberLength (-123 :: Int)</span><span>
+</span><span id="line-85"></span><span>    </span><span class="hs-comment">-- 3</span><span>
+</span><span id="line-86"></span><span>    </span><span class="hs-comment">--</span><span>
+</span><span id="line-87"></span><span>    </span><span class="hs-comment">-- See also 'signedNumberLength'.</span><span>
+</span><span id="line-88"></span><span>    </span><span id="numberLength"><span class="annot"><a href="Data.NumberLength.html#numberLength"><span class="hs-identifier hs-type">numberLength</span></a></span></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="annot"><a href="#local-6989586621679028733"><span class="hs-identifier hs-type">a</span></a></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="hs-identifier hs-type">Int</span></span><span>
+</span><span id="line-89"></span><span>
+</span><span id="line-90"></span><span>    </span><span class="hs-comment">-- | Get number of digits in base 16 for specified number. Note that if</span><span>
+</span><span id="line-91"></span><span>    </span><span class="hs-comment">-- number is signed, then this function will return length of its absolute</span><span>
+</span><span id="line-92"></span><span>    </span><span class="hs-comment">-- value.</span><span>
+</span><span id="line-93"></span><span>    </span><span class="hs-comment">--</span><span>
+</span><span id="line-94"></span><span>    </span><span class="hs-comment">-- &gt;&gt;&gt; numberLengthHex (123 :: Int)  -- 123 = 7b in hex</span><span>
+</span><span id="line-95"></span><span>    </span><span class="hs-comment">-- 2</span><span>
+</span><span id="line-96"></span><span>    </span><span class="hs-comment">-- &gt;&gt;&gt; numberLengthHex (-123 :: Int)</span><span>
+</span><span id="line-97"></span><span>    </span><span class="hs-comment">-- 2</span><span>
+</span><span id="line-98"></span><span>    </span><span class="hs-comment">--</span><span>
+</span><span id="line-99"></span><span>    </span><span class="hs-comment">-- See also 'signedNumberLengthHex'.</span><span>
+</span><span id="line-100"></span><span>    </span><span id="numberLengthHex"><span class="annot"><a href="Data.NumberLength.html#numberLengthHex"><span class="hs-identifier hs-type">numberLengthHex</span></a></span></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="annot"><a href="#local-6989586621679028733"><span class="hs-identifier hs-type">a</span></a></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="hs-identifier hs-type">Int</span></span><span>
+</span><span id="line-101"></span><span>
+</span><span id="line-102"></span><span class="hs-comment">-- | Get number of digits of a signed number in base 10 and base 16.</span><span>
+</span><span id="line-103"></span><span class="hs-keyword">class</span><span> </span><span class="annot"><a href="Data.NumberLength.html#NumberLength"><span class="hs-identifier hs-type">NumberLength</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679028735"><span class="hs-identifier hs-type">a</span></a></span><span> </span><span class="hs-glyph">=&gt;</span><span> </span><span id="SignedNumberLength"><span class="annot"><a href="Data.NumberLength.html#SignedNumberLength"><span class="hs-identifier hs-var">SignedNumberLength</span></a></span></span><span> </span><span id="local-6989586621679028735"><span class="annot"><a href="#local-6989586621679028735"><span class="hs-identifier hs-type">a</span></a></span></span><span> </span><span class="hs-keyword">where</span><span>
+</span><span id="line-104"></span><span>    </span><span class="hs-pragma">{-# MINIMAL</span><span> </span><span class="annot"><a href="Data.NumberLength.html#signedNumberLengthHex"><span class="hs-pragma hs-type">signedNumberLengthHex</span></a></span><span> </span><span class="hs-pragma">#-}</span><span>
+</span><span id="line-105"></span><span>
+</span><span id="line-106"></span><span>    </span><span class="hs-comment">-- | Get number of digits in base 10 for specified number.</span><span>
+</span><span id="line-107"></span><span>    </span><span class="hs-comment">--</span><span>
+</span><span id="line-108"></span><span>    </span><span class="hs-comment">-- &gt;&gt;&gt; signedNumberLength (123 :: Int)</span><span>
+</span><span id="line-109"></span><span>    </span><span class="hs-comment">-- 3</span><span>
+</span><span id="line-110"></span><span>    </span><span class="hs-comment">-- &gt;&gt;&gt; signedNumberLength (-123 :: Int)</span><span>
+</span><span id="line-111"></span><span>    </span><span class="hs-comment">-- 4</span><span>
+</span><span id="line-112"></span><span>    </span><span class="hs-comment">--</span><span>
+</span><span id="line-113"></span><span>    </span><span class="hs-comment">-- Default implementation provided if @a@ has also 'Num' and 'Ord'</span><span>
+</span><span id="line-114"></span><span>    </span><span class="hs-comment">-- instances:</span><span>
+</span><span id="line-115"></span><span>    </span><span class="hs-comment">--</span><span>
+</span><span id="line-116"></span><span>    </span><span class="hs-comment">-- @</span><span>
+</span><span id="line-117"></span><span>    </span><span class="hs-comment">-- 'signedNumberLength' n = signLength + 'numberLength' n</span><span>
+</span><span id="line-118"></span><span>    </span><span class="hs-comment">--   where</span><span>
+</span><span id="line-119"></span><span>    </span><span class="hs-comment">--     signLength = if n &lt; 0 then 1 else 0</span><span>
+</span><span id="line-120"></span><span>    </span><span class="hs-comment">-- @</span><span>
+</span><span id="line-121"></span><span>    </span><span id="signedNumberLength"><span class="annot"><a href="Data.NumberLength.html#signedNumberLength"><span class="hs-identifier hs-type">signedNumberLength</span></a></span></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="annot"><a href="#local-6989586621679028735"><span class="hs-identifier hs-type">a</span></a></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="hs-identifier hs-type">Int</span></span><span>
+</span><span id="line-122"></span><span>
+</span><span id="line-123"></span><span>    </span><span class="hs-keyword">default</span><span> </span><span id="signedNumberLength"><span class="annot"><a href="Data.NumberLength.html#signedNumberLength"><span class="hs-identifier hs-type">signedNumberLength</span></a></span></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="hs-special">(</span><span class="annot"><span class="hs-identifier hs-type">Num</span></span><span> </span><span class="annot"><a href="#local-6989586621679028735"><span class="hs-identifier hs-type">a</span></a></span><span class="hs-special">,</span><span> </span><span class="annot"><span class="hs-identifier hs-type">Ord</span></span><span> </span><span class="annot"><a href="#local-6989586621679028735"><span class="hs-identifier hs-type">a</span></a></span><span class="hs-special">)</span><span> </span><span class="hs-glyph">=&gt;</span><span> </span><span class="annot"><a href="#local-6989586621679028735"><span class="hs-identifier hs-type">a</span></a></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="hs-identifier hs-type">Int</span></span><span>
+</span><span id="line-124"></span><span>    </span><span id="local-6989586621679028672"><span class="annot"><a href="Data.NumberLength.html#signedNumberLength"><span class="hs-identifier hs-var hs-var">signedNumberLength</span></a></span><span> </span><span id="local-6989586621679028671"><span class="annot"><span class="annottext">a
+</span><a href="#local-6989586621679028671"><span class="hs-identifier hs-var">n</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">Int
+</span><a href="#local-6989586621679028670"><span class="hs-identifier hs-var">signLength</span></a></span><span> </span><span class="annot"><span class="annottext">Int -&gt; Int -&gt; Int
+forall a. Num a =&gt; a -&gt; a -&gt; a
+</span><span class="hs-operator hs-var">+</span></span><span> </span><span class="annot"><span class="annottext">a -&gt; Int
+forall a. NumberLength a =&gt; a -&gt; Int
+</span><a href="Data.NumberLength.html#numberLength"><span class="hs-identifier hs-var">numberLength</span></a></span><span> </span><span class="annot"><span class="annottext">a
+</span><a href="#local-6989586621679028671"><span class="hs-identifier hs-var">n</span></a></span><span>
+</span><span id="line-125"></span><span>      </span><span class="hs-keyword">where</span><span>
+</span><span id="line-126"></span><span>        </span><span id="local-6989586621679028670"><span class="annot"><span class="annottext">signLength :: Int
+</span><a href="#local-6989586621679028670"><span class="hs-identifier hs-var hs-var">signLength</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="hs-keyword">if</span><span> </span><span class="annot"><span class="annottext">a
+</span><a href="#local-6989586621679028671"><span class="hs-identifier hs-var">n</span></a></span><span> </span><span class="annot"><span class="annottext">a -&gt; a -&gt; Bool
+forall a. Ord a =&gt; a -&gt; a -&gt; Bool
+</span><span class="hs-operator hs-var">&lt;</span></span><span> </span><span class="annot"><span class="annottext">a
+</span><span class="hs-number">0</span></span><span> </span><span class="hs-keyword">then</span><span> </span><span class="annot"><span class="annottext">Int
+</span><span class="hs-number">1</span></span><span> </span><span class="hs-keyword">else</span><span> </span><span class="annot"><span class="annottext">Int
+</span><span class="hs-number">0</span></span><span>
+</span><span id="line-127"></span><span>
+</span><span id="line-128"></span><span>    </span><span class="hs-comment">-- | Get number of digits in base 16 for specified number.</span><span>
+</span><span id="line-129"></span><span>    </span><span class="hs-comment">--</span><span>
+</span><span id="line-130"></span><span>    </span><span class="hs-comment">-- &gt;&gt;&gt; signedNumberLengthHex (123 :: Int)</span><span>
+</span><span id="line-131"></span><span>    </span><span class="hs-comment">-- 2</span><span>
+</span><span id="line-132"></span><span>    </span><span class="hs-comment">-- &gt;&gt;&gt; signedNumberLengthHex (-123 :: Int)</span><span>
+</span><span id="line-133"></span><span>    </span><span class="hs-comment">-- 16</span><span>
+</span><span id="line-134"></span><span>    </span><span class="hs-comment">--</span><span>
+</span><span id="line-135"></span><span>    </span><span class="hs-comment">-- Negative number is shown as ones' complement, e.g. @(-123 :: Int) =</span><span>
+</span><span id="line-136"></span><span>    </span><span class="hs-comment">-- ffffffffffffff85@ on 64 bit platform.</span></span><span>
+</span><span id="line-137"></span><span>    </span><span id="signedNumberLengthHex"><span class="annot"><a href="Data.NumberLength.html#signedNumberLengthHex"><span class="hs-identifier hs-type">signedNumberLengthHex</span></a></span></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="annot"><a href="#local-6989586621679028735"><span class="hs-identifier hs-type">a</span></a></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="hs-identifier hs-type">Int</span></span><span>
+</span><span id="line-138"></span><span>
+</span><span id="line-139"></span><span class="hs-comment">-- | Get maximum number of digits of a number in base 10 and 16. Minimal number</span><span>
+</span><span id="line-140"></span><span class="hs-comment">-- of digits is considered to be always 1, and therefore there is no method for</span><span>
+</span><span id="line-141"></span><span class="hs-comment">-- it.</span><span>
+</span><span id="line-142"></span><span class="hs-keyword">class</span><span> </span><span class="annot"><a href="Data.NumberLength.html#NumberLength"><span class="hs-identifier hs-type">NumberLength</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679028725"><span class="hs-identifier hs-type">a</span></a></span><span> </span><span class="hs-glyph">=&gt;</span><span> </span><span id="BoundedNumberLength"><span class="annot"><a href="Data.NumberLength.html#BoundedNumberLength"><span class="hs-identifier hs-var">BoundedNumberLength</span></a></span></span><span> </span><span id="local-6989586621679028725"><span class="annot"><a href="#local-6989586621679028725"><span class="hs-identifier hs-type">a</span></a></span></span><span> </span><span class="hs-keyword">where</span><span>
+</span><span id="line-143"></span><span>    </span><span class="hs-comment">-- | Get maximum number of digits of a number in base 10.</span><span>
+</span><span id="line-144"></span><span>    </span><span id="local-6989586621679028727"><span id="maxNumberLength"><span class="annot"><a href="Data.NumberLength.html#maxNumberLength"><span class="hs-identifier hs-type">maxNumberLength</span></a></span></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="annot"><a href="#local-6989586621679028727"><span class="hs-identifier hs-type">proxy</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679028725"><span class="hs-identifier hs-type">a</span></a></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="hs-identifier hs-type">Int</span></span></span><span>
+</span><span id="line-145"></span><span>
+</span><span id="line-146"></span><span>    </span><span class="hs-comment">-- | Get maximum number of digits of a number in base 16.</span><span>
+</span><span id="line-147"></span><span>    </span><span id="local-6989586621679028668"><span id="maxNumberLengthHex"><span class="annot"><a href="Data.NumberLength.html#maxNumberLengthHex"><span class="hs-identifier hs-type">maxNumberLengthHex</span></a></span></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="annot"><a href="#local-6989586621679028668"><span class="hs-identifier hs-type">proxy</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679028725"><span class="hs-identifier hs-type">a</span></a></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="hs-identifier hs-type">Int</span></span></span><span>
+</span><span id="line-148"></span><span>
+</span><span id="line-149"></span><span class="hs-comment">-- {{{ Int* -------------------------------------------------------------------</span><span>
+</span><span id="line-150"></span><span>
+</span><span id="line-151"></span><span class="hs-keyword">instance</span><span> </span><span class="annot"><a href="Data.NumberLength.html#NumberLength"><span class="hs-identifier hs-type">NumberLength</span></a></span><span> </span><span class="annot"><span class="hs-identifier hs-type">Int</span></span><span> </span><span class="hs-keyword">where</span><span>
+</span><span id="line-152"></span><span>    </span><span id="local-6989586621679028663"><span class="annot"><span class="annottext">numberLength :: Int -&gt; Int
+</span><a href="#local-6989586621679028663"><span class="hs-identifier hs-var hs-var hs-var hs-var">numberLength</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">Int -&gt; Int
+</span><a href="Data.NumberLength.Int.html#lengthInt"><span class="hs-identifier hs-var">lengthInt</span></a></span><span>
+</span><span id="line-153"></span><span>    </span><span id="local-6989586621679028662"><span class="annot"><span class="annottext">numberLengthHex :: Int -&gt; Int
+</span><a href="#local-6989586621679028662"><span class="hs-identifier hs-var hs-var hs-var hs-var">numberLengthHex</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">Int -&gt; Int
+</span><a href="Data.NumberLength.Int.html#lengthIntHex"><span class="hs-identifier hs-var">lengthIntHex</span></a></span><span>
+</span><span id="line-154"></span><span>
+</span><span id="line-155"></span><span class="hs-keyword">instance</span><span> </span><span id="local-6989586621679028659"><span class="annot"><a href="Data.NumberLength.html#SignedNumberLength"><span class="hs-identifier hs-type">SignedNumberLength</span></a></span><span> </span><span class="annot"><span class="hs-identifier hs-type">Int</span></span></span><span> </span><span class="hs-keyword">where</span><span>
+</span><span id="line-156"></span><span>    </span><span id="local-6989586621679028656"><span class="annot"><span class="annottext">signedNumberLengthHex :: Int -&gt; Int
+</span><a href="#local-6989586621679028656"><span class="hs-identifier hs-var hs-var hs-var hs-var">signedNumberLengthHex</span></a></span></span><span> </span><span id="local-6989586621679028655"><span class="annot"><span class="annottext">Int
+</span><a href="#local-6989586621679028655"><span class="hs-identifier hs-var">n</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">Word -&gt; Int
+forall a. NumberLength a =&gt; a -&gt; Int
+</span><a href="Data.NumberLength.html#numberLengthHex"><span class="hs-identifier hs-var">numberLengthHex</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">Int -&gt; Word
+forall a b. (Integral a, Num b) =&gt; a -&gt; b
+</span><span class="hs-identifier hs-var">fromIntegral</span></span><span> </span><span class="annot"><span class="annottext">Int
+</span><a href="#local-6989586621679028655"><span class="hs-identifier hs-var">n</span></a></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="annot"><span class="hs-identifier hs-type">Word</span></span><span class="hs-special">)</span><span>
+</span><span id="line-157"></span><span>
+</span><span id="line-158"></span><span class="hs-keyword">instance</span><span> </span><span class="annot"><a href="Data.NumberLength.html#BoundedNumberLength"><span class="hs-identifier hs-type">BoundedNumberLength</span></a></span><span> </span><span class="annot"><span class="hs-identifier hs-type">Int</span></span><span> </span><span class="hs-keyword">where</span><span>
+</span><span id="line-159"></span><span>    </span><span id="local-6989586621679028650"><span class="annot"><span class="annottext">maxNumberLength :: proxy Int -&gt; Int
+</span><a href="#local-6989586621679028650"><span class="hs-identifier hs-var hs-var hs-var hs-var">maxNumberLength</span></a></span></span><span> </span><span class="annot"><span class="annottext">proxy Int
+</span><span class="hs-identifier">_</span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">Int
+</span><span class="hs-number">10</span></span><span> </span><span class="annot"><span class="annottext">Int -&gt; Int -&gt; Int
+forall a. a -&gt; a -&gt; a
+</span><a href="Data.NumberLength.Internal.html#either32or64"><span class="hs-operator hs-var">`either32or64`</span></a></span><span> </span><span class="annot"><span class="annottext">Int
+</span><span class="hs-number">19</span></span><span>
+</span><span id="line-160"></span><span>    </span><span id="local-6989586621679028649"><span class="annot"><span class="annottext">maxNumberLengthHex :: proxy Int -&gt; Int
+</span><a href="#local-6989586621679028649"><span class="hs-identifier hs-var hs-var hs-var hs-var">maxNumberLengthHex</span></a></span></span><span> </span><span class="annot"><span class="annottext">proxy Int
+</span><span class="hs-identifier">_</span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">Int
+</span><span class="hs-number">8</span></span><span> </span><span class="annot"><span class="annottext">Int -&gt; Int -&gt; Int
+forall a. a -&gt; a -&gt; a
+</span><a href="Data.NumberLength.Internal.html#either32or64"><span class="hs-operator hs-var">`either32or64`</span></a></span><span> </span><span class="annot"><span class="annottext">Int
+</span><span class="hs-number">16</span></span><span>
+</span><span id="line-161"></span><span>
+</span><span id="line-162"></span><span class="hs-keyword">instance</span><span> </span><span class="annot"><a href="Data.NumberLength.html#NumberLength"><span class="hs-identifier hs-type">NumberLength</span></a></span><span> </span><span class="annot"><span class="hs-identifier hs-type">Int64</span></span><span> </span><span class="hs-keyword">where</span><span>
+</span><span id="line-163"></span><span>    </span><span id="local-6989586621679028646"><span class="annot"><span class="annottext">numberLength :: Int64 -&gt; Int
+</span><a href="#local-6989586621679028646"><span class="hs-identifier hs-var hs-var hs-var hs-var">numberLength</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">Int64 -&gt; Int
+</span><a href="Data.NumberLength.Int.html#lengthInt64"><span class="hs-identifier hs-var">lengthInt64</span></a></span><span>
+</span><span id="line-164"></span><span>    </span><span id="local-6989586621679028645"><span class="annot"><span class="annottext">numberLengthHex :: Int64 -&gt; Int
+</span><a href="#local-6989586621679028645"><span class="hs-identifier hs-var hs-var hs-var hs-var">numberLengthHex</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">Int64 -&gt; Int
+</span><a href="Data.NumberLength.Int.html#lengthInt64hex"><span class="hs-identifier hs-var">lengthInt64hex</span></a></span><span>
+</span><span id="line-165"></span><span>
+</span><span id="line-166"></span><span class="hs-keyword">instance</span><span> </span><span id="local-6989586621679028642"><span class="annot"><a href="Data.NumberLength.html#SignedNumberLength"><span class="hs-identifier hs-type">SignedNumberLength</span></a></span><span> </span><span class="annot"><span class="hs-identifier hs-type">Int64</span></span></span><span> </span><span class="hs-keyword">where</span><span>
+</span><span id="line-167"></span><span>    </span><span id="local-6989586621679028640"><span class="annot"><span class="annottext">signedNumberLengthHex :: Int64 -&gt; Int
+</span><a href="#local-6989586621679028640"><span class="hs-identifier hs-var hs-var hs-var hs-var">signedNumberLengthHex</span></a></span></span><span> </span><span id="local-6989586621679028639"><span class="annot"><span class="annottext">Int64
+</span><a href="#local-6989586621679028639"><span class="hs-identifier hs-var">n</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">Word64 -&gt; Int
+forall a. NumberLength a =&gt; a -&gt; Int
+</span><a href="Data.NumberLength.html#numberLengthHex"><span class="hs-identifier hs-var">numberLengthHex</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">Int64 -&gt; Word64
+forall a b. (Integral a, Num b) =&gt; a -&gt; b
+</span><span class="hs-identifier hs-var">fromIntegral</span></span><span> </span><span class="annot"><span class="annottext">Int64
+</span><a href="#local-6989586621679028639"><span class="hs-identifier hs-var">n</span></a></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="annot"><span class="hs-identifier hs-type">Word64</span></span><span class="hs-special">)</span><span>
+</span><span id="line-168"></span><span>
+</span><span id="line-169"></span><span class="hs-keyword">instance</span><span> </span><span class="annot"><a href="Data.NumberLength.html#BoundedNumberLength"><span class="hs-identifier hs-type">BoundedNumberLength</span></a></span><span> </span><span class="annot"><span class="hs-identifier hs-type">Int64</span></span><span> </span><span class="hs-keyword">where</span><span>
+</span><span id="line-170"></span><span>    </span><span id="local-6989586621679028635"><span class="annot"><span class="annottext">maxNumberLength :: proxy Int64 -&gt; Int
+</span><a href="#local-6989586621679028635"><span class="hs-identifier hs-var hs-var hs-var hs-var">maxNumberLength</span></a></span></span><span> </span><span class="annot"><span class="annottext">proxy Int64
+</span><span class="hs-identifier">_</span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">Int
+</span><span class="hs-number">19</span></span><span>
+</span><span id="line-171"></span><span>    </span><span id="local-6989586621679028634"><span class="annot"><span class="annottext">maxNumberLengthHex :: proxy Int64 -&gt; Int
+</span><a href="#local-6989586621679028634"><span class="hs-identifier hs-var hs-var hs-var hs-var">maxNumberLengthHex</span></a></span></span><span> </span><span class="annot"><span class="annottext">proxy Int64
+</span><span class="hs-identifier">_</span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">Int
+</span><span class="hs-number">16</span></span><span>
+</span><span id="line-172"></span><span>
+</span><span id="line-173"></span><span class="hs-keyword">instance</span><span> </span><span class="annot"><a href="Data.NumberLength.html#NumberLength"><span class="hs-identifier hs-type">NumberLength</span></a></span><span> </span><span class="annot"><span class="hs-identifier hs-type">Int32</span></span><span> </span><span class="hs-keyword">where</span><span>
+</span><span id="line-174"></span><span>    </span><span id="local-6989586621679028631"><span class="annot"><span class="annottext">numberLength :: Int32 -&gt; Int
+</span><a href="#local-6989586621679028631"><span class="hs-identifier hs-var hs-var hs-var hs-var">numberLength</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">Int32 -&gt; Int
+</span><a href="Data.NumberLength.Int.html#lengthInt32"><span class="hs-identifier hs-var">lengthInt32</span></a></span><span>
+</span><span id="line-175"></span><span>    </span><span id="local-6989586621679028630"><span class="annot"><span class="annottext">numberLengthHex :: Int32 -&gt; Int
+</span><a href="#local-6989586621679028630"><span class="hs-identifier hs-var hs-var hs-var hs-var">numberLengthHex</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">Int32 -&gt; Int
+</span><a href="Data.NumberLength.Int.html#lengthInt32hex"><span class="hs-identifier hs-var">lengthInt32hex</span></a></span><span>
+</span><span id="line-176"></span><span>
+</span><span id="line-177"></span><span class="hs-keyword">instance</span><span> </span><span id="local-6989586621679028627"><span class="annot"><a href="Data.NumberLength.html#SignedNumberLength"><span class="hs-identifier hs-type">SignedNumberLength</span></a></span><span> </span><span class="annot"><span class="hs-identifier hs-type">Int32</span></span></span><span> </span><span class="hs-keyword">where</span><span>
+</span><span id="line-178"></span><span>    </span><span id="local-6989586621679028625"><span class="annot"><span class="annottext">signedNumberLengthHex :: Int32 -&gt; Int
+</span><a href="#local-6989586621679028625"><span class="hs-identifier hs-var hs-var hs-var hs-var">signedNumberLengthHex</span></a></span></span><span> </span><span id="local-6989586621679028624"><span class="annot"><span class="annottext">Int32
+</span><a href="#local-6989586621679028624"><span class="hs-identifier hs-var">n</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">Word32 -&gt; Int
+forall a. NumberLength a =&gt; a -&gt; Int
+</span><a href="Data.NumberLength.html#numberLengthHex"><span class="hs-identifier hs-var">numberLengthHex</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">Int32 -&gt; Word32
+forall a b. (Integral a, Num b) =&gt; a -&gt; b
+</span><span class="hs-identifier hs-var">fromIntegral</span></span><span> </span><span class="annot"><span class="annottext">Int32
+</span><a href="#local-6989586621679028624"><span class="hs-identifier hs-var">n</span></a></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="annot"><span class="hs-identifier hs-type">Word32</span></span><span class="hs-special">)</span><span>
+</span><span id="line-179"></span><span>
+</span><span id="line-180"></span><span class="hs-keyword">instance</span><span> </span><span class="annot"><a href="Data.NumberLength.html#BoundedNumberLength"><span class="hs-identifier hs-type">BoundedNumberLength</span></a></span><span> </span><span class="annot"><span class="hs-identifier hs-type">Int32</span></span><span> </span><span class="hs-keyword">where</span><span>
+</span><span id="line-181"></span><span>    </span><span id="local-6989586621679028620"><span class="annot"><span class="annottext">maxNumberLength :: proxy Int32 -&gt; Int
+</span><a href="#local-6989586621679028620"><span class="hs-identifier hs-var hs-var hs-var hs-var">maxNumberLength</span></a></span></span><span> </span><span class="annot"><span class="annottext">proxy Int32
+</span><span class="hs-identifier">_</span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">Int
+</span><span class="hs-number">10</span></span><span>
+</span><span id="line-182"></span><span>    </span><span id="local-6989586621679028619"><span class="annot"><span class="annottext">maxNumberLengthHex :: proxy Int32 -&gt; Int
+</span><a href="#local-6989586621679028619"><span class="hs-identifier hs-var hs-var hs-var hs-var">maxNumberLengthHex</span></a></span></span><span> </span><span class="annot"><span class="annottext">proxy Int32
+</span><span class="hs-identifier">_</span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">Int
+</span><span class="hs-number">8</span></span><span>
+</span><span id="line-183"></span><span>
+</span><span id="line-184"></span><span class="hs-keyword">instance</span><span> </span><span class="annot"><a href="Data.NumberLength.html#NumberLength"><span class="hs-identifier hs-type">NumberLength</span></a></span><span> </span><span class="annot"><span class="hs-identifier hs-type">Int16</span></span><span> </span><span class="hs-keyword">where</span><span>
+</span><span id="line-185"></span><span>    </span><span id="local-6989586621679028616"><span class="annot"><span class="annottext">numberLength :: Int16 -&gt; Int
+</span><a href="#local-6989586621679028616"><span class="hs-identifier hs-var hs-var hs-var hs-var">numberLength</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">Int16 -&gt; Int
+</span><a href="Data.NumberLength.Int.html#lengthInt16"><span class="hs-identifier hs-var">lengthInt16</span></a></span><span>
+</span><span id="line-186"></span><span>    </span><span id="local-6989586621679028615"><span class="annot"><span class="annottext">numberLengthHex :: Int16 -&gt; Int
+</span><a href="#local-6989586621679028615"><span class="hs-identifier hs-var hs-var hs-var hs-var">numberLengthHex</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">Int16 -&gt; Int
+</span><a href="Data.NumberLength.Int.html#lengthInt16hex"><span class="hs-identifier hs-var">lengthInt16hex</span></a></span><span>
+</span><span id="line-187"></span><span>
+</span><span id="line-188"></span><span class="hs-keyword">instance</span><span> </span><span id="local-6989586621679028612"><span class="annot"><a href="Data.NumberLength.html#SignedNumberLength"><span class="hs-identifier hs-type">SignedNumberLength</span></a></span><span> </span><span class="annot"><span class="hs-identifier hs-type">Int16</span></span></span><span> </span><span class="hs-keyword">where</span><span>
+</span><span id="line-189"></span><span>    </span><span id="local-6989586621679028610"><span class="annot"><span class="annottext">signedNumberLengthHex :: Int16 -&gt; Int
+</span><a href="#local-6989586621679028610"><span class="hs-identifier hs-var hs-var hs-var hs-var">signedNumberLengthHex</span></a></span></span><span> </span><span id="local-6989586621679028609"><span class="annot"><span class="annottext">Int16
+</span><a href="#local-6989586621679028609"><span class="hs-identifier hs-var">n</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">Word16 -&gt; Int
+forall a. NumberLength a =&gt; a -&gt; Int
+</span><a href="Data.NumberLength.html#numberLengthHex"><span class="hs-identifier hs-var">numberLengthHex</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">Int16 -&gt; Word16
+forall a b. (Integral a, Num b) =&gt; a -&gt; b
+</span><span class="hs-identifier hs-var">fromIntegral</span></span><span> </span><span class="annot"><span class="annottext">Int16
+</span><a href="#local-6989586621679028609"><span class="hs-identifier hs-var">n</span></a></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="annot"><span class="hs-identifier hs-type">Word16</span></span><span class="hs-special">)</span><span>
+</span><span id="line-190"></span><span>
+</span><span id="line-191"></span><span class="hs-keyword">instance</span><span> </span><span class="annot"><a href="Data.NumberLength.html#BoundedNumberLength"><span class="hs-identifier hs-type">BoundedNumberLength</span></a></span><span> </span><span class="annot"><span class="hs-identifier hs-type">Int16</span></span><span> </span><span class="hs-keyword">where</span><span>
+</span><span id="line-192"></span><span>    </span><span id="local-6989586621679028605"><span class="annot"><span class="annottext">maxNumberLength :: proxy Int16 -&gt; Int
+</span><a href="#local-6989586621679028605"><span class="hs-identifier hs-var hs-var hs-var hs-var">maxNumberLength</span></a></span></span><span> </span><span class="annot"><span class="annottext">proxy Int16
+</span><span class="hs-identifier">_</span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">Int
+</span><span class="hs-number">5</span></span><span>
+</span><span id="line-193"></span><span>    </span><span id="local-6989586621679028604"><span class="annot"><span class="annottext">maxNumberLengthHex :: proxy Int16 -&gt; Int
+</span><a href="#local-6989586621679028604"><span class="hs-identifier hs-var hs-var hs-var hs-var">maxNumberLengthHex</span></a></span></span><span> </span><span class="annot"><span class="annottext">proxy Int16
+</span><span class="hs-identifier">_</span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">Int
+</span><span class="hs-number">4</span></span><span>
+</span><span id="line-194"></span><span>
+</span><span id="line-195"></span><span class="hs-keyword">instance</span><span> </span><span class="annot"><a href="Data.NumberLength.html#NumberLength"><span class="hs-identifier hs-type">NumberLength</span></a></span><span> </span><span class="annot"><span class="hs-identifier hs-type">Int8</span></span><span> </span><span class="hs-keyword">where</span><span>
+</span><span id="line-196"></span><span>    </span><span id="local-6989586621679028601"><span class="annot"><span class="annottext">numberLength :: Int8 -&gt; Int
+</span><a href="#local-6989586621679028601"><span class="hs-identifier hs-var hs-var hs-var hs-var">numberLength</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">Int8 -&gt; Int
+</span><a href="Data.NumberLength.Int.html#lengthInt8"><span class="hs-identifier hs-var">lengthInt8</span></a></span><span>
+</span><span id="line-197"></span><span>    </span><span id="local-6989586621679028600"><span class="annot"><span class="annottext">numberLengthHex :: Int8 -&gt; Int
+</span><a href="#local-6989586621679028600"><span class="hs-identifier hs-var hs-var hs-var hs-var">numberLengthHex</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">Int8 -&gt; Int
+</span><a href="Data.NumberLength.Int.html#lengthInt8hex"><span class="hs-identifier hs-var">lengthInt8hex</span></a></span><span>
+</span><span id="line-198"></span><span>
+</span><span id="line-199"></span><span class="hs-keyword">instance</span><span> </span><span id="local-6989586621679028597"><span class="annot"><a href="Data.NumberLength.html#SignedNumberLength"><span class="hs-identifier hs-type">SignedNumberLength</span></a></span><span> </span><span class="annot"><span class="hs-identifier hs-type">Int8</span></span></span><span> </span><span class="hs-keyword">where</span><span>
+</span><span id="line-200"></span><span>    </span><span id="local-6989586621679028595"><span class="annot"><span class="annottext">signedNumberLengthHex :: Int8 -&gt; Int
+</span><a href="#local-6989586621679028595"><span class="hs-identifier hs-var hs-var hs-var hs-var">signedNumberLengthHex</span></a></span></span><span> </span><span id="local-6989586621679028594"><span class="annot"><span class="annottext">Int8
+</span><a href="#local-6989586621679028594"><span class="hs-identifier hs-var">n</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">Word8 -&gt; Int
+forall a. NumberLength a =&gt; a -&gt; Int
+</span><a href="Data.NumberLength.html#numberLengthHex"><span class="hs-identifier hs-var">numberLengthHex</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">Int8 -&gt; Word8
+forall a b. (Integral a, Num b) =&gt; a -&gt; b
+</span><span class="hs-identifier hs-var">fromIntegral</span></span><span> </span><span class="annot"><span class="annottext">Int8
+</span><a href="#local-6989586621679028594"><span class="hs-identifier hs-var">n</span></a></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="annot"><span class="hs-identifier hs-type">Word8</span></span><span class="hs-special">)</span><span>
+</span><span id="line-201"></span><span>
+</span><span id="line-202"></span><span class="hs-keyword">instance</span><span> </span><span class="annot"><a href="Data.NumberLength.html#BoundedNumberLength"><span class="hs-identifier hs-type">BoundedNumberLength</span></a></span><span> </span><span class="annot"><span class="hs-identifier hs-type">Int8</span></span><span> </span><span class="hs-keyword">where</span><span>
+</span><span id="line-203"></span><span>    </span><span id="local-6989586621679028590"><span class="annot"><span class="annottext">maxNumberLength :: proxy Int8 -&gt; Int
+</span><a href="#local-6989586621679028590"><span class="hs-identifier hs-var hs-var hs-var hs-var">maxNumberLength</span></a></span></span><span> </span><span class="annot"><span class="annottext">proxy Int8
+</span><span class="hs-identifier">_</span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">Int
+</span><span class="hs-number">3</span></span><span>
+</span><span id="line-204"></span><span>    </span><span id="local-6989586621679028589"><span class="annot"><span class="annottext">maxNumberLengthHex :: proxy Int8 -&gt; Int
+</span><a href="#local-6989586621679028589"><span class="hs-identifier hs-var hs-var hs-var hs-var">maxNumberLengthHex</span></a></span></span><span> </span><span class="annot"><span class="annottext">proxy Int8
+</span><span class="hs-identifier">_</span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">Int
+</span><span class="hs-number">2</span></span><span>
+</span><span id="line-205"></span><span>
+</span><span id="line-206"></span><span class="hs-comment">-- }}} Int* -------------------------------------------------------------------</span><span>
+</span><span id="line-207"></span><span class="hs-comment">-- {{{ Word* ------------------------------------------------------------------</span><span>
+</span><span id="line-208"></span><span>
+</span><span id="line-209"></span><span class="hs-keyword">instance</span><span> </span><span class="annot"><a href="Data.NumberLength.html#NumberLength"><span class="hs-identifier hs-type">NumberLength</span></a></span><span> </span><span class="annot"><span class="hs-identifier hs-type">Word</span></span><span> </span><span class="hs-keyword">where</span><span>
+</span><span id="line-210"></span><span>    </span><span id="local-6989586621679028586"><span class="annot"><span class="annottext">numberLength :: Word -&gt; Int
+</span><a href="#local-6989586621679028586"><span class="hs-identifier hs-var hs-var hs-var hs-var">numberLength</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">Word -&gt; Int
+</span><a href="Data.NumberLength.Word.html#lengthWord"><span class="hs-identifier hs-var">lengthWord</span></a></span><span>
+</span><span id="line-211"></span><span>    </span><span id="local-6989586621679028585"><span class="annot"><span class="annottext">numberLengthHex :: Word -&gt; Int
+</span><a href="#local-6989586621679028585"><span class="hs-identifier hs-var hs-var hs-var hs-var">numberLengthHex</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">Word -&gt; Int
+</span><a href="Data.NumberLength.Word.html#lengthWordHex"><span class="hs-identifier hs-var">lengthWordHex</span></a></span><span>
+</span><span id="line-212"></span><span>
+</span><span id="line-213"></span><span class="hs-keyword">instance</span><span> </span><span class="annot"><a href="Data.NumberLength.html#BoundedNumberLength"><span class="hs-identifier hs-type">BoundedNumberLength</span></a></span><span> </span><span class="annot"><span class="hs-identifier hs-type">Word</span></span><span> </span><span class="hs-keyword">where</span><span>
+</span><span id="line-214"></span><span>    </span><span id="local-6989586621679028581"><span class="annot"><span class="annottext">maxNumberLength :: proxy Word -&gt; Int
+</span><a href="#local-6989586621679028581"><span class="hs-identifier hs-var hs-var hs-var hs-var">maxNumberLength</span></a></span></span><span> </span><span class="annot"><span class="annottext">proxy Word
+</span><span class="hs-identifier">_</span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">Int
+</span><span class="hs-number">10</span></span><span> </span><span class="annot"><span class="annottext">Int -&gt; Int -&gt; Int
+forall a. a -&gt; a -&gt; a
+</span><a href="Data.NumberLength.Internal.html#either32or64"><span class="hs-operator hs-var">`either32or64`</span></a></span><span> </span><span class="annot"><span class="annottext">Int
+</span><span class="hs-number">20</span></span><span>
+</span><span id="line-215"></span><span>    </span><span id="local-6989586621679028580"><span class="annot"><span class="annottext">maxNumberLengthHex :: proxy Word -&gt; Int
+</span><a href="#local-6989586621679028580"><span class="hs-identifier hs-var hs-var hs-var hs-var">maxNumberLengthHex</span></a></span></span><span> </span><span class="annot"><span class="annottext">proxy Word
+</span><span class="hs-identifier">_</span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">Int
+</span><span class="hs-number">8</span></span><span> </span><span class="annot"><span class="annottext">Int -&gt; Int -&gt; Int
+forall a. a -&gt; a -&gt; a
+</span><a href="Data.NumberLength.Internal.html#either32or64"><span class="hs-operator hs-var">`either32or64`</span></a></span><span> </span><span class="annot"><span class="annottext">Int
+</span><span class="hs-number">16</span></span><span>
+</span><span id="line-216"></span><span>
+</span><span id="line-217"></span><span class="hs-keyword">instance</span><span> </span><span class="annot"><a href="Data.NumberLength.html#NumberLength"><span class="hs-identifier hs-type">NumberLength</span></a></span><span> </span><span class="annot"><span class="hs-identifier hs-type">Word64</span></span><span> </span><span class="hs-keyword">where</span><span>
+</span><span id="line-218"></span><span>    </span><span id="local-6989586621679028577"><span class="annot"><span class="annottext">numberLength :: Word64 -&gt; Int
+</span><a href="#local-6989586621679028577"><span class="hs-identifier hs-var hs-var hs-var hs-var">numberLength</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">Word64 -&gt; Int
+</span><a href="Data.NumberLength.Word.html#lengthWord64"><span class="hs-identifier hs-var">lengthWord64</span></a></span><span>
+</span><span id="line-219"></span><span>    </span><span id="local-6989586621679028576"><span class="annot"><span class="annottext">numberLengthHex :: Word64 -&gt; Int
+</span><a href="#local-6989586621679028576"><span class="hs-identifier hs-var hs-var hs-var hs-var">numberLengthHex</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">Word64 -&gt; Int
+</span><a href="Data.NumberLength.Word.html#lengthWord64hex"><span class="hs-identifier hs-var">lengthWord64hex</span></a></span><span>
+</span><span id="line-220"></span><span>
+</span><span id="line-221"></span><span class="hs-keyword">instance</span><span> </span><span class="annot"><a href="Data.NumberLength.html#BoundedNumberLength"><span class="hs-identifier hs-type">BoundedNumberLength</span></a></span><span> </span><span class="annot"><span class="hs-identifier hs-type">Word64</span></span><span> </span><span class="hs-keyword">where</span><span>
+</span><span id="line-222"></span><span>    </span><span id="local-6989586621679028572"><span class="annot"><span class="annottext">maxNumberLength :: proxy Word64 -&gt; Int
+</span><a href="#local-6989586621679028572"><span class="hs-identifier hs-var hs-var hs-var hs-var">maxNumberLength</span></a></span></span><span> </span><span class="annot"><span class="annottext">proxy Word64
+</span><span class="hs-identifier">_</span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">Int
+</span><span class="hs-number">20</span></span><span>
+</span><span id="line-223"></span><span>    </span><span id="local-6989586621679028571"><span class="annot"><span class="annottext">maxNumberLengthHex :: proxy Word64 -&gt; Int
+</span><a href="#local-6989586621679028571"><span class="hs-identifier hs-var hs-var hs-var hs-var">maxNumberLengthHex</span></a></span></span><span> </span><span class="annot"><span class="annottext">proxy Word64
+</span><span class="hs-identifier">_</span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">Int
+</span><span class="hs-number">16</span></span><span>
+</span><span id="line-224"></span><span>
+</span><span id="line-225"></span><span class="hs-keyword">instance</span><span> </span><span class="annot"><a href="Data.NumberLength.html#NumberLength"><span class="hs-identifier hs-type">NumberLength</span></a></span><span> </span><span class="annot"><span class="hs-identifier hs-type">Word32</span></span><span> </span><span class="hs-keyword">where</span><span>
+</span><span id="line-226"></span><span>    </span><span id="local-6989586621679028568"><span class="annot"><span class="annottext">numberLength :: Word32 -&gt; Int
+</span><a href="#local-6989586621679028568"><span class="hs-identifier hs-var hs-var hs-var hs-var">numberLength</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">Word32 -&gt; Int
+</span><a href="Data.NumberLength.Word.html#lengthWord32"><span class="hs-identifier hs-var">lengthWord32</span></a></span><span>
+</span><span id="line-227"></span><span>    </span><span id="local-6989586621679028567"><span class="annot"><span class="annottext">numberLengthHex :: Word32 -&gt; Int
+</span><a href="#local-6989586621679028567"><span class="hs-identifier hs-var hs-var hs-var hs-var">numberLengthHex</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">Word32 -&gt; Int
+</span><a href="Data.NumberLength.Word.html#lengthWord32hex"><span class="hs-identifier hs-var">lengthWord32hex</span></a></span><span>
+</span><span id="line-228"></span><span>
+</span><span id="line-229"></span><span class="hs-keyword">instance</span><span> </span><span class="annot"><a href="Data.NumberLength.html#BoundedNumberLength"><span class="hs-identifier hs-type">BoundedNumberLength</span></a></span><span> </span><span class="annot"><span class="hs-identifier hs-type">Word32</span></span><span> </span><span class="hs-keyword">where</span><span>
+</span><span id="line-230"></span><span>    </span><span id="local-6989586621679028563"><span class="annot"><span class="annottext">maxNumberLength :: proxy Word32 -&gt; Int
+</span><a href="#local-6989586621679028563"><span class="hs-identifier hs-var hs-var hs-var hs-var">maxNumberLength</span></a></span></span><span> </span><span class="annot"><span class="annottext">proxy Word32
+</span><span class="hs-identifier">_</span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">Int
+</span><span class="hs-number">10</span></span><span>
+</span><span id="line-231"></span><span>    </span><span id="local-6989586621679028562"><span class="annot"><span class="annottext">maxNumberLengthHex :: proxy Word32 -&gt; Int
+</span><a href="#local-6989586621679028562"><span class="hs-identifier hs-var hs-var hs-var hs-var">maxNumberLengthHex</span></a></span></span><span> </span><span class="annot"><span class="annottext">proxy Word32
+</span><span class="hs-identifier">_</span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">Int
+</span><span class="hs-number">8</span></span><span>
+</span><span id="line-232"></span><span>
+</span><span id="line-233"></span><span class="hs-keyword">instance</span><span> </span><span class="annot"><a href="Data.NumberLength.html#NumberLength"><span class="hs-identifier hs-type">NumberLength</span></a></span><span> </span><span class="annot"><span class="hs-identifier hs-type">Word16</span></span><span> </span><span class="hs-keyword">where</span><span>
+</span><span id="line-234"></span><span>    </span><span id="local-6989586621679028559"><span class="annot"><span class="annottext">numberLength :: Word16 -&gt; Int
+</span><a href="#local-6989586621679028559"><span class="hs-identifier hs-var hs-var hs-var hs-var">numberLength</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">Word16 -&gt; Int
+</span><a href="Data.NumberLength.Word.html#lengthWord16"><span class="hs-identifier hs-var">lengthWord16</span></a></span><span>
+</span><span id="line-235"></span><span>    </span><span id="local-6989586621679028558"><span class="annot"><span class="annottext">numberLengthHex :: Word16 -&gt; Int
+</span><a href="#local-6989586621679028558"><span class="hs-identifier hs-var hs-var hs-var hs-var">numberLengthHex</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">Word16 -&gt; Int
+</span><a href="Data.NumberLength.Word.html#lengthWord16hex"><span class="hs-identifier hs-var">lengthWord16hex</span></a></span><span>
+</span><span id="line-236"></span><span>
+</span><span id="line-237"></span><span class="hs-keyword">instance</span><span> </span><span class="annot"><a href="Data.NumberLength.html#BoundedNumberLength"><span class="hs-identifier hs-type">BoundedNumberLength</span></a></span><span> </span><span class="annot"><span class="hs-identifier hs-type">Word16</span></span><span> </span><span class="hs-keyword">where</span><span>
+</span><span id="line-238"></span><span>    </span><span id="local-6989586621679028554"><span class="annot"><span class="annottext">maxNumberLength :: proxy Word16 -&gt; Int
+</span><a href="#local-6989586621679028554"><span class="hs-identifier hs-var hs-var hs-var hs-var">maxNumberLength</span></a></span></span><span> </span><span class="annot"><span class="annottext">proxy Word16
+</span><span class="hs-identifier">_</span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">Int
+</span><span class="hs-number">5</span></span><span>
+</span><span id="line-239"></span><span>    </span><span id="local-6989586621679028553"><span class="annot"><span class="annottext">maxNumberLengthHex :: proxy Word16 -&gt; Int
+</span><a href="#local-6989586621679028553"><span class="hs-identifier hs-var hs-var hs-var hs-var">maxNumberLengthHex</span></a></span></span><span> </span><span class="annot"><span class="annottext">proxy Word16
+</span><span class="hs-identifier">_</span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">Int
+</span><span class="hs-number">4</span></span><span>
+</span><span id="line-240"></span><span>
+</span><span id="line-241"></span><span class="hs-keyword">instance</span><span> </span><span class="annot"><a href="Data.NumberLength.html#NumberLength"><span class="hs-identifier hs-type">NumberLength</span></a></span><span> </span><span class="annot"><span class="hs-identifier hs-type">Word8</span></span><span> </span><span class="hs-keyword">where</span><span>
+</span><span id="line-242"></span><span>    </span><span id="local-6989586621679028550"><span class="annot"><span class="annottext">numberLength :: Word8 -&gt; Int
+</span><a href="#local-6989586621679028550"><span class="hs-identifier hs-var hs-var hs-var hs-var">numberLength</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">Word8 -&gt; Int
+</span><a href="Data.NumberLength.Word.html#lengthWord8"><span class="hs-identifier hs-var">lengthWord8</span></a></span><span>
+</span><span id="line-243"></span><span>    </span><span id="local-6989586621679028549"><span class="annot"><span class="annottext">numberLengthHex :: Word8 -&gt; Int
+</span><a href="#local-6989586621679028549"><span class="hs-identifier hs-var hs-var hs-var hs-var">numberLengthHex</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">Word8 -&gt; Int
+</span><a href="Data.NumberLength.Word.html#lengthWord8hex"><span class="hs-identifier hs-var">lengthWord8hex</span></a></span><span>
+</span><span id="line-244"></span><span>
+</span><span id="line-245"></span><span class="hs-keyword">instance</span><span> </span><span class="annot"><a href="Data.NumberLength.html#BoundedNumberLength"><span class="hs-identifier hs-type">BoundedNumberLength</span></a></span><span> </span><span class="annot"><span class="hs-identifier hs-type">Word8</span></span><span> </span><span class="hs-keyword">where</span><span>
+</span><span id="line-246"></span><span>    </span><span id="local-6989586621679028545"><span class="annot"><span class="annottext">maxNumberLength :: proxy Word8 -&gt; Int
+</span><a href="#local-6989586621679028545"><span class="hs-identifier hs-var hs-var hs-var hs-var">maxNumberLength</span></a></span></span><span> </span><span class="annot"><span class="annottext">proxy Word8
+</span><span class="hs-identifier">_</span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">Int
+</span><span class="hs-number">3</span></span><span>
+</span><span id="line-247"></span><span>    </span><span id="local-6989586621679028544"><span class="annot"><span class="annottext">maxNumberLengthHex :: proxy Word8 -&gt; Int
+</span><a href="#local-6989586621679028544"><span class="hs-identifier hs-var hs-var hs-var hs-var">maxNumberLengthHex</span></a></span></span><span> </span><span class="annot"><span class="annottext">proxy Word8
+</span><span class="hs-identifier">_</span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">Int
+</span><span class="hs-number">2</span></span><span>
+</span><span id="line-248"></span><span>
+</span><span id="line-249"></span><span class="hs-comment">-- }}} Word* ------------------------------------------------------------------</span><span>
+</span><span id="line-250"></span><span>
+</span><span id="line-251"></span><span class="hs-comment">-- | /Since 0.2.0.0/</span><span>
+</span><span id="line-252"></span><span class="hs-keyword">instance</span><span> </span><span class="annot"><a href="Data.NumberLength.html#NumberLength"><span class="hs-identifier hs-type">NumberLength</span></a></span><span> </span><span class="annot"><span class="hs-identifier hs-type">Integer</span></span><span> </span><span class="hs-keyword">where</span><span>
+</span><span id="line-253"></span><span>    </span><span id="local-6989586621679028541"><span class="annot"><span class="annottext">numberLength :: Integer -&gt; Int
+</span><a href="#local-6989586621679028541"><span class="hs-identifier hs-var hs-var hs-var hs-var">numberLength</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">Integer -&gt; Int
+</span><a href="Data.NumberLength.Integer.html#lengthInteger"><span class="hs-identifier hs-var">lengthInteger</span></a></span><span>
+</span><span id="line-254"></span><span>    </span><span id="local-6989586621679028540"><span class="annot"><span class="annottext">numberLengthHex :: Integer -&gt; Int
+</span><a href="#local-6989586621679028540"><span class="hs-identifier hs-var hs-var hs-var hs-var">numberLengthHex</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">Integer -&gt; Int
+</span><a href="Data.NumberLength.Integer.html#lengthIntegerHex"><span class="hs-identifier hs-var">lengthIntegerHex</span></a></span><span class="hs-cpp">
+
+#ifdef HAVE_NATURAL
+</span><span class="hs-comment">-- | /Since 0.2.0.0/</span><span>
+</span><span id="line-258"></span><span class="hs-keyword">instance</span><span> </span><span class="annot"><a href="Data.NumberLength.html#NumberLength"><span class="hs-identifier hs-type">NumberLength</span></a></span><span> </span><span class="annot"><span class="hs-identifier hs-type">Natural</span></span><span> </span><span class="hs-keyword">where</span><span>
+</span><span id="line-259"></span><span>    </span><span id="local-6989586621679028537"><span class="annot"><span class="annottext">numberLength :: Natural -&gt; Int
+</span><a href="#local-6989586621679028537"><span class="hs-identifier hs-var hs-var hs-var hs-var">numberLength</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">Natural -&gt; Int
+</span><a href="Data.NumberLength.Natural.html#lengthNatural"><span class="hs-identifier hs-var">lengthNatural</span></a></span><span>
+</span><span id="line-260"></span><span>    </span><span id="local-6989586621679028536"><span class="annot"><span class="annottext">numberLengthHex :: Natural -&gt; Int
+</span><a href="#local-6989586621679028536"><span class="hs-identifier hs-var hs-var hs-var hs-var">numberLengthHex</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">Natural -&gt; Int
+</span><a href="Data.NumberLength.Natural.html#lengthNaturalHex"><span class="hs-identifier hs-var">lengthNaturalHex</span></a></span><span class="hs-cpp">
+#endif
+</span></pre></body></html>

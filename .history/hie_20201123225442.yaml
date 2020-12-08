@@ -1,8 +1,0 @@
-cradle:
-  stack:
-  - path: ./src
-    component: "collatz:lib"
-  - path: ./test
-    component: "collatz:test:collatz-test"
-  - path: ./app
-    component: "collatz:exe:collatz-exe"

@@ -1,8 +1,0 @@
-cradle:
-  stack:
-  - path: ./src
-    component: "start:lib"
-  - path: ./test
-    component: "start:test:start-test"
-  - path: ./app
-    component: "start:exe:start-exe"

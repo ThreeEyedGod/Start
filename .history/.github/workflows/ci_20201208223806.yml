@@ -32,6 +32,12 @@ jobs:
         path: ~/.stack
         key: ${{ runner.os }}-${{ matrix.ghc }}-stack
     
+      
+    - uses: github/ndmitchel/hlint@v3
+      name: Run Linter
+      with:
+        hlint-arguments: src
+
     - name: Build
       run: |
         stack build --no-run-tests --no-run-benchmarks

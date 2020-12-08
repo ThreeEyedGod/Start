@@ -31,7 +31,7 @@ jobs:
       with:
         path: ~/.stack
         key: ${{ runner.os }}-${{ matrix.ghc }}-stack
-    
+
     - name: Build
       run: |
         stack build --no-run-tests --no-run-benchmarks

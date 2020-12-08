@@ -48,4 +48,5 @@ jobs:
       run: |
         stack test --system-ghc
 
-    - run: runhaskell main
+    - run: | 
+        runhaskell src/main.hs

@@ -52,4 +52,4 @@ jobs:
         stack test --system-ghc
 
     - run: | 
-        runhaskell app/main.hs
+        runhaskell app/Main.hs

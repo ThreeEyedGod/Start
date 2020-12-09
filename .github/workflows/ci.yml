@@ -32,13 +32,16 @@ jobs:
    # - uses: domdere/haskell-lint-action@master
    #   name: hlinter
         
-    - uses: actions/cache@v1
-      name: Cache ~/.stack
+    - uses: actions/cache@v2
+      name: Cache multiple paths
       with:
-        path: ~/.stack
+        path: | 
+          ~/.stack
+          ~/src
+          ~/app
+          ~/test
         key: ${{ runner.os }}-${{ matrix.ghc }}-stack
     
-
     - name: Build
       run: |
         stack build --no-run-tests --no-run-benchmarks
@@ -49,4 +52,4 @@ jobs:
         stack test --system-ghc
 
     - run: | 
-        runhaskell src/main.hs
+        runhaskell app/main.hs

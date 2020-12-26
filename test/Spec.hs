@@ -78,17 +78,18 @@ libhelper = describe "LibHelper" $ do
         it "returns karatsuba 234567890124464673737771818 * 1836535353547474646282828282  " $ karatsuba 234567890124464673737771818 1836535353547474646282828282  `shouldBe` (234567890124464673737771818 * 1836535353547474646282828282 )
     describe "karatsubaPar : 234567890124464673737771818 * 1836535353547474646282828282 10 " $ do
         it "returns karatsubaPar 234567890124464673737771818 * 1836535353547474646282828282  10" $ karatsubaPar 234567890124464673737771818 1836535353547474646282828282 10 `shouldBe` (234567890124464673737771818 * 1836535353547474646282828282 )
-
+    describe "sort smallest N of a list" $ do
+        it "returns smallest_N_lazy 4 [88, 33, 38389, 1, 39393, 99, 98, 10] " $ smallestN_lazy 4 [88, 33, 38389, 1, 39393, 99, 98, 10] `shouldBe` [1, 10, 33, 88]
 
 libadvanced :: Spec
 libadvanced = describe "Libdvanced" $
     describe "Function2: f2" $ do
-        it "f2 0" $ id 0 `shouldBe` 0
+        it "f2 0" $ 0 `shouldBe` 0
 
 libProperty :: Spec
 libProperty = describe "LibProperty" $
     describe "prop_3  " $ do
-        modifyMaxSuccess (const 1000) $ it "karatsuba x y " $ property $
+        modifyMaxSuccess (const 1000) $ it "karatsuba x y " $ property
            prop_3
 
 my_test_opts :: TestOptions
@@ -96,7 +97,6 @@ my_test_opts = mempty { topt_maximum_generated_tests = Just 20 }
 
 my_runner_opts :: RunnerOptions
 my_runner_opts = mempty {ropt_test_options = Just my_test_opts}
-
 
 
 tests = [
@@ -121,10 +121,10 @@ rigorousArgs =
     }
 
 prop1 b = b == False
-  where types = (b :: Bool)
+  where types = b :: Bool
 
 prop2 i = i == 42
-  where types = (i :: Int)
+  where types = i :: Int
 
 positives_large :: Gen Integer
 positives_large =
@@ -132,11 +132,11 @@ positives_large =
     -- Pick an arbitrary integer:
     x <- arbitrary
     -- Make it positive, if necessary:
-    if (x == 0)
+    if x == 0
       then return 1000000
       else
         if x < 100000
-          then return ((abs x) * 100000)
+          then return (abs x * 100000)
           else return x
 
 prop_3 :: (Positive (Large Int)) -> (Positive (Large Int)) -> Property 

@@ -16,7 +16,7 @@ get1stHalf :: Integer -> Integer -> Integer
 
 -- | Number of Digits in a given number.
 --   
---   <b>Examples:</b>
+--   <b>Examples Asmina:</b>
 --   
 --   <pre>
 --   1234 = 4

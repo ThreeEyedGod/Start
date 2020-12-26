@@ -23,6 +23,10 @@ higherPower x  = ceiling (logBase basetwo numberInterest)
 getNextPowerOf2 :: Integer -> Integer
 getNextPowerOf2 x = 2 ^ higherPower (abs x)
 
+smallestN_lazy :: Ord a => Int -> [a] -> [a]
+smallestN_lazy n = take n . sort
+
+
 padNumberBeforeWithZeroes :: Integer -> Integer
 padNumberBeforeWithZeroes x = getNextPowerOf2 x  - toInteger (numberLength x)
 
@@ -49,7 +53,7 @@ get1stHalf x secondHalf =
 
 {- | Number of Digits in a given number.
 
-__Examples:__
+__Examples Asmina:__
 
 @
 1234 = 4

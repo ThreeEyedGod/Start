@@ -27,10 +27,13 @@ library
                      , time >= 1.9.3
   default-language:    Haskell2010
 
+-- profiling 
+-- https://downloads.haskell.org/~ghc/7.0.1/docs/html/users_guide/runtime-control.html
+
 executable start-exe
   hs-source-dirs:      app
   main-is:             Main.hs
-  ghc-options:         -threaded -rtsopts -with-rtsopts="-N1"
+  ghc-options:         -threaded -rtsopts "-with-rtsopts=-N1 -s"
   build-depends:       base
                      , start
  --                    , liquidhaskell >= 0.8.10 && < 0.8.12
@@ -60,8 +63,12 @@ test-suite start-test
                      , hspec-hedgehog
                      , hedgehog  >= 1.0.2 && < 2 
                      , hspec-core >= 2.7.4
-  ghc-options:         -threaded -rtsopts -with-rtsopts=-N
+  ghc-options:         -threaded -rtsopts "-with-rtsopts=-N1 -s"
   default-language:    Haskell2010
+
+benchmark start-benchmark
+  type:                exitcode-stdio-1.0
+  main-is:             Main.hs
 
 source-repository head
   type:     git

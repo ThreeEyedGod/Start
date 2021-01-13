@@ -53,7 +53,6 @@ get1stHalf x secondHalf =
 
 {- | Number of Digits in a given number.
 
-__Examples Asmina:__
 
 @
 1234 = 4
@@ -69,11 +68,6 @@ split_digits ab n = (a, b)
   where
     a = floor $ fromInteger ab / 10 ^ n
     b = ab - a * 10 ^ n
-
-myReverse :: Ord a => [a] -> [a]
-myReverse [] = []
-myReverse xs = sortBy (\x y -> flip compare (elemIndex x xs) (elemIndex y xs)) xs
-
 
 
 cutoff :: Int

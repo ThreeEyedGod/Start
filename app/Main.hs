@@ -5,7 +5,7 @@ import Lib
 
 joinstr :: String -> [String] -> String
 joinstr _ [] = ""
-joinstr _ (w : []) = w
+joinstr _ [w] = w
 joinstr sep (w : ws) = w ++ sep ++ joinstr sep ws
 
 -- produce the URL for the Google Chart

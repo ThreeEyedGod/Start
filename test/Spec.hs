@@ -30,6 +30,8 @@ lib = describe "Lib" $ do
 
 libhelper :: Spec
 libhelper = describe "LibHelper" $ do
+{--
+    -- removing tests for deprecated code
     describe "getLargerTwoNumbers : " $ do
         it "returns getLargerTwoNumbers Int Int for 2531 1467" $ getLargerTwoNumbers 2531 1467 `shouldBe` 2531
     describe "higherPower : " $ do
@@ -63,7 +65,7 @@ libhelper = describe "LibHelper" $ do
         it "returns 2nd half for karatsuba 51467" $ get2ndHalf 51467 4 `shouldBe` 1467
     describe "get1stHalf : " $ do
         it "returns 1st half for karatsuba 51467" $ get1stHalf 51467 1467 `shouldBe` 5
-        
+--}
     describe "karatsuba : 2531 * 1467 " $ do
         it "returns karatsuba 2531 x 1467 " $  karatsuba 2531 1467 `shouldBe` 3712977
     describe "karatsuba : 12351 * 1467 " $ do
@@ -78,8 +80,6 @@ libhelper = describe "LibHelper" $ do
         it "returns karatsuba 234567890124464673737771818 * 1836535353547474646282828282  " $ karatsuba 234567890124464673737771818 1836535353547474646282828282  `shouldBe` (234567890124464673737771818 * 1836535353547474646282828282 )
     describe "karatsubaPar : 234567890124464673737771818 * 1836535353547474646282828282 10 " $ do
         it "returns karatsubaPar 234567890124464673737771818 * 1836535353547474646282828282  10" $ karatsubaPar 234567890124464673737771818 1836535353547474646282828282 10 `shouldBe` (234567890124464673737771818 * 1836535353547474646282828282 )
-    describe "sort smallest N of a list" $ do
-        it "returns smallest_N_lazy 4 [88, 33, 38389, 1, 39393, 99, 98, 10] " $ smallestN_lazy 4 [88, 33, 38389, 1, 39393, 99, 98, 10] `shouldBe` [1, 10, 33, 88]
 
 libadvanced :: Spec
 libadvanced = describe "Libdvanced" $
@@ -92,11 +92,11 @@ libProperty = describe "LibProperty" $
         modifyMaxSuccess (const 1000) $ it "karatsuba x y " $ property
            prop_3
 
-my_test_opts :: TestOptions
-my_test_opts = mempty { topt_maximum_generated_tests = Just 20 }
+myTestOpts :: TestOptions
+myTestOpts = mempty { topt_maximum_generated_tests = Just 20 }
 
-my_runner_opts :: RunnerOptions
-my_runner_opts = mempty {ropt_test_options = Just my_test_opts}
+myRunnerOpts :: RunnerOptions
+myRunnerOpts = mempty {ropt_test_options = Just myTestOpts}
 
 
 tests = [
@@ -126,8 +126,8 @@ prop1 b = b == False
 prop2 i = i == 42
   where types = i :: Int
 
-positives_large :: Gen Integer
-positives_large =
+positivesLarge :: Gen Integer
+positivesLarge =
   do
     -- Pick an arbitrary integer:
     x <- arbitrary
@@ -139,8 +139,8 @@ positives_large =
           then return (abs x * 100000)
           else return x
 
-prop_3 :: (Positive (Large Int)) -> (Positive (Large Int)) -> Property 
-prop_3 (Positive (Large f)) (Positive (Large s)) = f > 0 ==> karatsuba (toInteger f) (toInteger s) == (toInteger f) * (toInteger s)
+prop_3 :: Positive (Large Int) -> Positive (Large Int) -> Property 
+prop_3 (Positive (Large f)) (Positive (Large s)) = f > 0 ==> karatsuba (toInteger f) (toInteger s) == toInteger f * toInteger s
 
 
 --return []

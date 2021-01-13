@@ -10,7 +10,7 @@ import qualified Control.Parallel as CP
 import Data.Time.Clock
 import GHC.Conc.Sync
 
-
+{-- sub-optimal first day code - now bigly deprecated 
 
 getLargerTwoNumbers :: Integer -> Integer -> Integer
 getLargerTwoNumbers x y = if abs x >= abs y then x else y
@@ -51,58 +51,6 @@ get1stHalf x secondHalf =
    (x - secondHalf) `div` 10 ^ numberLength secondHalf
 
 
-{- | Number of Digits in a given number.
-
-
-@
-1234 = 4
-43 = 2
-@
--}
-numDigits :: Integer -> Integer
-numDigits 1000 = 4
-numDigits x = floor $ logBase 10 (fromInteger x) + 1
-
-split_digits :: Integer -> Integer -> (Integer, Integer)
-split_digits ab n = (a, b)
-  where
-    a = floor $ fromInteger ab / 10 ^ n
-    b = ab - a * 10 ^ n
-
-
-cutoff :: Int
-cutoff = 3
-
-karatsuba :: Integer -> Integer -> Integer
-karatsuba ab cd
-  | ab <= 10 = ab * cd
-  | cd <= 10 = ab * cd
-  | otherwise =
-    let z0 = karatsuba b d
-        z1 = karatsuba (a + b) (c + d)
-        z2 = karatsuba a c
-     in z2 * 10 ^ (digits `div` 2 * 2) + (z1 - z2 - z0) * 10 ^ (digits `div` 2) + z0
-  where
-    digits = max (numDigits ab) (numDigits cd)
-    (a, b) = split_digits ab (digits `div` 2)
-    (c, d) = split_digits cd (digits `div` 2)
-
-
-karatsubaPar :: Integer -> Integer -> Integer -> Integer
-karatsubaPar ab cd cutoff
-  | ab <= 10 = ab * cd
-  | cd <= 10 = ab * cd
-  | (cutoff >= ab) || (cutoff >= cd) = z0 `CP.pseq` z2 `CP.pseq` z1 `CP.pseq` put_together
-  | otherwise = (z0 `CP.par` z2) `CP.par` z1 `CP.pseq` put_together
-  where
-    digits = max (numDigits ab) (numDigits cd)
-    (a, b) = split_digits ab (digits `div` 2)
-    (c, d) = split_digits cd (digits `div` 2)
-    z0 = karatsubaPar b d cutoff
-    z1 = karatsubaPar (a + b) (c + d) cutoff
-    z2 = karatsubaPar a c cutoff
-    put_together = z2 * 10 ^ (digits `div` 2 * 2) + (z1 - z2 - z0) * 10 ^ (digits `div` 2) + z0
-    
 karatsubamine :: Integer -> Integer -> Integer
 --karatsuba x y = trace ("Entering ktsba with x y " ++ show x ++ "  " ++ show y) $  ksba (getNextPowerOf2 (getLargerTwoNumbers x y))
 karatsubamine x y = ksba (max (numDigits x) (numDigits y))
@@ -130,6 +78,59 @@ karatsubamine x y = ksba (max (numDigits x) (numDigits y))
 
 
 
+--}
+
+{- | Number of Digits in a given number.
+@
+1234 = 4
+43 = 2
+@
+-}
+numDigits :: Integer -> Integer
+numDigits 1000 = 4
+numDigits x = floor $ logBase 10 (fromInteger x) + 1
+
+splitDigits :: Integer -> Integer -> (Integer, Integer)
+splitDigits ab n = (a, b)
+  where
+    a = floor $ fromInteger ab / 10 ^ n
+    b = ab - a * 10 ^ n
+
+
+cutoff :: Int
+cutoff = 3
+
+karatsuba :: Integer -> Integer -> Integer
+karatsuba ab cd
+  | ab <= 10 = ab * cd
+  | cd <= 10 = ab * cd
+  | otherwise =
+    let z0 = karatsuba b d
+        z1 = karatsuba (a + b) (c + d)
+        z2 = karatsuba a c
+     in z2 * 10 ^ (digits `div` 2 * 2) + (z1 - z2 - z0) * 10 ^ (digits `div` 2) + z0
+  where
+    digits = max (numDigits ab) (numDigits cd)
+    (a, b) = splitDigits ab (digits `div` 2)
+    (c, d) = splitDigits cd (digits `div` 2)
+
+
+karatsubaPar :: Integer -> Integer -> Integer -> Integer
+karatsubaPar ab cd cutoff
+  | ab <= 10 = ab * cd
+  | cd <= 10 = ab * cd
+  | (cutoff >= ab) || (cutoff >= cd) = z0 `CP.pseq` z2 `CP.pseq` z1 `CP.pseq` put_together
+  | otherwise = (z0 `CP.par` z2) `CP.par` z1 `CP.pseq` put_together
+  where
+    digits = max (numDigits ab) (numDigits cd)
+    (a, b) = splitDigits ab (digits `div` 2)
+    (c, d) = splitDigits cd (digits `div` 2)
+    z0 = karatsubaPar b d cutoff
+    z1 = karatsubaPar (a + b) (c + d) cutoff
+    z2 = karatsubaPar a c cutoff
+    put_together = z2 * 10 ^ (digits `div` 2 * 2) + (z1 - z2 - z0) * 10 ^ (digits `div` 2) + z0
+    
+
 -- time KPar for with the given cutoff
 timeCutoff :: Integer -> Integer -> Integer -> IO NominalDiffTime
 timeCutoff n1 n2 c = do
@@ -151,14 +152,15 @@ timePar n1 n2 x = do
 -- time all cutoffs
 timeAll :: Integer -> Integer -> IO [Float]
 timeAll n1 n2 = do
-  times <- sequence $ map (timeCutoff n1 n2) [(max n1 n2) `div` 1, (max n1 n2) `div` 2,(max n1 n2) `div` 4, (max n1 n2) `div` 8, (max n1 n2) `div` 16]
+  times <- mapM (timeCutoff n1 n2) [max n1 n2 `div` 1, max n1 n2 `div` 2,max n1 n2 `div` 4, max n1 n2 `div` 8, max n1 n2 `div` 16]
   return $ map (fromRational . toRational) times
 
 -- diff between Parallel and Serial for 'times' number of runs 
+--sequence $ map replaced by mapM
 comp :: Integer -> Integer -> Integer -> IO [Float]
 comp n1 n2 times = do
-  timesPar <- sequence $ map (timePar n1 n2) $ map (\x -> x `div` x) [1..times]
-  timesSer <- sequence $ map (timeSer n1 n2) $ map (\x -> x `div` x) [1..times]
+  timesPar <- mapM (timePar n1 n2) $ map (\x -> x `div` x) [1..times]
+  timesSer <- mapM (timeSer n1 n2) $ map (\x -> x `div` x) [1..times]
   return $ map (fromRational . toRational) (zipWith (-) timesPar timesSer)
 
 -- time KSer for baseline; x is not used
@@ -168,7 +170,6 @@ timeSer n1 n2 x = do
   let r = karatsuba n1 n2
   en <- st `CP.pseq` r `CP.pseq` getCurrentTime
   return $ fromRational . toRational $ diffUTCTime en st
-
 
 someFunc :: IO ()
 someFunc = putStrLn "someFunc"
